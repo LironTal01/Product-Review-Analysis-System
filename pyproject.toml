@@ -87,8 +87,10 @@ line-ending = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
-asyncio_mode = "auto"
+addopts = "-v"
+markers = [
+    "unit: fast isolated unit tests",
+]
 
 [tool.coverage.run]
 source = ["src"]
