@@ -31,8 +31,8 @@ AMAZON_DOMAINS = {
     "smile.amazon.com",
 }
 
-# ASIN format: 10 characters, starts with B, alphanumeric
-ASIN_PATTERN = re.compile(r"^B[A-Z0-9]{9}$")
+# ASIN format: 10 alphanumeric characters (case-insensitive input)
+ASIN_PATTERN = re.compile(r"^[A-Z0-9]{10}$")
 
 # Grab candidate token from path; final validity is ASIN_PATTERN.
 DP_PATTERN = re.compile(r"/dp/([A-Z0-9@_-]{8,12})(?:/|$|\?|#)", re.IGNORECASE)
@@ -70,7 +70,7 @@ def validate_amazon_url(url: str) -> bool:
 
 
 def _validate_asin_format(asin: str) -> bool:
-    """True if asin matches B + nine alphanumerics (case-insensitive input)."""
+    """True if asin matches 10 alphanumerics (case-insensitive input)."""
     if not asin or not isinstance(asin, str):
         return False
 
