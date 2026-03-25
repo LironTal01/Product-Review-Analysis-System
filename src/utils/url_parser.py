@@ -57,8 +57,8 @@ def validate_amazon_url(url: str) -> bool:
         if parsed.scheme.lower() not in ("http", "https"):
             return False
 
-        # Check if domain is Amazon (case-insensitive)
-        domain = parsed.netloc.lower()
+        # Check if domain is Amazon (case-insensitive, no port)
+        domain = (parsed.hostname or "").lower()
         # Remove 'www.' prefix if present
         if domain.startswith("www."):
             domain = domain[4:]
@@ -92,10 +92,7 @@ def _extract_asin_from_path(path: str) -> str | None:
 
 
 def extract_asin(url: str) -> str:
-    """Return ASIN string or raise AmazonURLError / InvalidASINError / TypeError."""
-    if url is None:
-        raise TypeError("URL cannot be None")
-
+    """Return ASIN string or raise AmazonURLError / InvalidASINError."""
     if not isinstance(url, str):
         raise AmazonURLError("URL must be a string")
 
@@ -125,15 +122,3 @@ def extract_asin(url: str) -> str:
         raise InvalidASINError(f"Invalid ASIN format: {asin}")
 
     return asin
-
-
-def extract_asins_batch(urls: list[str]) -> dict[str, str]:
-    """Map each URL to its ASIN; skip entries that cannot be parsed."""
-    results = {}
-    for url in urls:
-        try:
-            results[url] = extract_asin(url)
-        except (AmazonURLError, InvalidASINError, TypeError):
-            # Skip invalid URLs
-            continue
-    return results

@@ -70,9 +70,9 @@ def test_extract_asin_raises(url, expected_exc):
         extract_asin(url)
 
 
-def test_extract_asin_none_raises_typeerror():
+def test_extract_asin_none_raises_amazon_url_error():
     """None is not a valid input type for extract_asin."""
-    with pytest.raises(TypeError):
+    with pytest.raises(AmazonURLError):
         extract_asin(None)
 
 
