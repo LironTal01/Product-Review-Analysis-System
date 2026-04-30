@@ -28,7 +28,12 @@
             required
             autocomplete="off"
             spellcheck="false"
+            aria-describedby="url-hint"
           />
+          <p id="url-hint" class="field-hint">
+            Paste a link from amazon.com, amazon.co.uk, amazon.de, etc.
+          </p>
+          <p id="url-error" class="field-error hidden" role="alert"></p>
         </div>
 
         <div class="field">
@@ -54,9 +59,46 @@
       </form>
     </section>
 
+    <section id="recent-section" class="card recent-section hidden" aria-labelledby="recent-title">
+      <div class="recent-header">
+        <h3 id="recent-title">Recent searches</h3>
+        <button type="button" id="recent-clear" class="link-btn">Clear</button>
+      </div>
+      <ul id="recent-list" class="chip-list"></ul>
+    </section>
+
+    <section id="examples" class="card examples-card" aria-labelledby="examples-title">
+      <h3 id="examples-title">Try one of these</h3>
+      <p class="muted">No URL handy? Pick a sample to see how it works.</p>
+      <ul id="examples-list" class="chip-list"></ul>
+    </section>
+
     <div id="loading" class="loading hidden" role="status" aria-live="polite">
-      <div class="spinner" aria-hidden="true"></div>
-      <p>Analyzing reviews… this can take a few seconds.</p>
+      <div class="skeleton-stack">
+        <div class="skeleton skeleton-header">
+          <div class="skeleton-block skeleton-thumb"></div>
+          <div class="skeleton-lines">
+            <div class="skeleton-block skeleton-line lg"></div>
+            <div class="skeleton-block skeleton-line sm"></div>
+            <div class="skeleton-block skeleton-line sm"></div>
+          </div>
+        </div>
+        <div class="skeleton">
+          <div class="skeleton-block skeleton-line lg"></div>
+          <div class="skeleton-block skeleton-line"></div>
+          <div class="skeleton-block skeleton-line"></div>
+          <div class="skeleton-block skeleton-line short"></div>
+        </div>
+        <div class="skeleton">
+          <div class="skeleton-block skeleton-line lg"></div>
+          <div class="skeleton-block skeleton-line"></div>
+          <div class="skeleton-block skeleton-line short"></div>
+        </div>
+      </div>
+      <p class="loading-label">
+        <span class="spinner-sm" aria-hidden="true"></span>
+        Analyzing reviews…
+      </p>
     </div>
 
     <div id="error" class="error hidden" role="alert"></div>
@@ -118,12 +160,22 @@
 
       <article class="card">
         <h3>Topics mentioned</h3>
-        <input
-          type="search"
-          id="aspect-filter"
-          placeholder="Filter topics (e.g. battery, shipping)…"
-          autocomplete="off"
-        />
+        <div class="aspect-controls">
+          <input
+            type="search"
+            id="aspect-filter"
+            placeholder="Filter topics (e.g. battery, shipping)…"
+            autocomplete="off"
+          />
+          <label class="select-label">
+            Sort:
+            <select id="aspect-sort">
+              <option value="count">Most mentioned</option>
+              <option value="sentiment">By sentiment</option>
+              <option value="alpha">A–Z</option>
+            </select>
+          </label>
+        </div>
         <ul id="aspects-list" class="aspects-list"></ul>
       </article>
     </section>
