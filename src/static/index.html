@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PRAS — Product Review Analysis</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>Product Review Analysis</h1>
+      <p class="subtitle">AI-powered insights from real Amazon reviews</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card input-card" aria-labelledby="form-title">
+      <h2 id="form-title">Analyze a product</h2>
+      <form id="analyze-form" novalidate>
+        <div class="field">
+          <label for="amazon-url">Amazon product URL</label>
+          <input
+            type="url"
+            id="amazon-url"
+            name="amazon_url"
+            placeholder="https://www.amazon.com/dp/B08N5WRWNW"
+            required
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="field">
+          <label for="max-reviews">
+            Reviews to analyze:
+            <output id="max-reviews-value" for="max-reviews">100</output>
+          </label>
+          <input
+            type="range"
+            id="max-reviews"
+            name="max_reviews"
+            min="100"
+            max="500"
+            step="50"
+            value="100"
+          />
+          <div class="range-ticks" aria-hidden="true">
+            <span>100</span><span>200</span><span>300</span><span>400</span><span>500</span>
+          </div>
+        </div>
+
+        <button type="submit" id="analyze-btn">Analyze reviews</button>
+      </form>
+    </section>
+
+    <div id="loading" class="loading hidden" role="status" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Analyzing reviews… this can take a few seconds.</p>
+    </div>
+
+    <div id="error" class="error hidden" role="alert"></div>
+
+    <section id="results" class="results hidden" aria-live="polite">
+      <article class="card product-header">
+        <img id="product-image" alt="" />
+        <div class="product-meta">
+          <h2 id="product-title">Product</h2>
+          <p class="price" id="product-price"></p>
+          <p class="rating-line">
+            <span id="amazon-rating"></span>
+            <span class="dot">·</span>
+            <span id="total-review-count"></span>
+          </p>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>What reviewers say</h3>
+        <p id="summary-text" class="lead"></p>
+      </article>
+
+      <article class="card recommendation-card">
+        <h3>Should you buy it?</h3>
+        <p id="recommendation" class="lead"></p>
+        <div class="confidence">
+          <div class="confidence-meter" aria-hidden="true">
+            <div id="confidence-fill" class="confidence-fill"></div>
+          </div>
+          <p class="confidence-line">
+            <strong id="confidence-score">0%</strong>
+            <span>confidence</span>
+          </p>
+          <p id="confidence-explanation" class="muted"></p>
+        </div>
+      </article>
+
+      <div class="grid-2">
+        <article class="card pros-card">
+          <h3>Pros</h3>
+          <ul id="pros-list" class="bullet-list"></ul>
+        </article>
+        <article class="card cons-card">
+          <h3>Cons</h3>
+          <ul id="cons-list" class="bullet-list"></ul>
+        </article>
+      </div>
+
+      <article class="card">
+        <h3>Rating distribution</h3>
+        <div id="rating-bars" class="rating-bars"></div>
+      </article>
+
+      <article class="card">
+        <h3>Common complaints (1–3 stars)</h3>
+        <p id="negative-summary" class="muted"></p>
+      </article>
+
+      <article class="card">
+        <h3>Topics mentioned</h3>
+        <input
+          type="search"
+          id="aspect-filter"
+          placeholder="Filter topics (e.g. battery, shipping)…"
+          autocomplete="off"
+        />
+        <ul id="aspects-list" class="aspects-list"></ul>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>PRAS — Product Review Analysis System</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
