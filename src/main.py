@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.db.postgres import get_analysis, init_db, save_analysis
+from src.db.redis_cache import get_cached, set_cached
 from src.utils.logger import logger
 from src.utils.url_parser import (
     AmazonURLError,
@@ -74,16 +75,18 @@ async def health() -> dict[str, str]:
 async def analyze(request: AnalyzeRequest) -> JSONResponse:
     """Validate the URL and return an analysis payload.
 
-    Persistence flow:
+    Lookup order:
     1. Validate URL → ``asin``.
-    2. Read-through Postgres: if a previous analysis exists for
-       ``(asin, max_reviews)``, return it (no recomputation).
-    3. Otherwise compute (currently a deterministic mock until Partner A's
-       core pipeline lands), persist the result, and return it.
+    2. Redis cache (24h TTL) — fastest path, returns immediately on hit.
+    3. Postgres (durable storage) — if found, refresh the Redis cache and
+       return.
+    4. Otherwise compute (currently a deterministic mock until Partner A's
+       core pipeline lands), persist the result to Postgres, cache it in
+       Redis, and return it.
 
-    The database is **optional**: when ``DATABASE_URL`` is empty or
-    Postgres is unreachable, both the read and the write degrade silently
-    and the endpoint still returns a fresh payload.
+    Both stores are **optional**: when ``REDIS_URL`` / ``DATABASE_URL``
+    are empty or unreachable, the affected layers degrade silently and the
+    endpoint still returns a fresh payload.
     """
     try:
         asin = extract_asin(request.amazon_url)
@@ -93,13 +96,20 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
 
     logger.info("Analyze request accepted: asin=%s max_reviews=%d", asin, request.max_reviews)
 
-    cached = get_analysis(asin, request.max_reviews)
+    cached = get_cached(asin, request.max_reviews)
     if cached is not None:
-        logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+        logger.info("Redis hit: asin=%s max_reviews=%d", asin, request.max_reviews)
         return JSONResponse(cached)
+
+    stored = get_analysis(asin, request.max_reviews)
+    if stored is not None:
+        logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+        set_cached(asin, request.max_reviews, stored)
+        return JSONResponse(stored)
 
     payload = _build_mock_analysis(asin=asin, max_reviews=request.max_reviews)
     save_analysis(asin, request.max_reviews, payload)
+    set_cached(asin, request.max_reviews, payload)
     return JSONResponse(payload)
 
 
