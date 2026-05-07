@@ -1,0 +1,40 @@
+# Keep the build context lean — anything that is not needed at runtime.
+
+# Local virtualenv and Python caches
+venv/
+.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Tests, docs, planning files (image only needs the runtime code under src/)
+tests/
+*.md
+
+# Git and editor metadata
+.git/
+.gitignore
+.github/
+.idea/
+.vscode/
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# OS junk
+.DS_Store
+
+# Compose / docker artifacts (we don't COPY them into the image)
+docker-compose.yml
+Dockerfile
+.dockerignore

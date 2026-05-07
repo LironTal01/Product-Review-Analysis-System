@@ -1,0 +1,60 @@
+# Local dev stack: app + postgres + redis on a single network.
+# Usage:
+#   docker compose up --build      # first run / after code change
+#   docker compose up              # subsequent runs
+#   docker compose down -v         # stop and remove volumes (clean slate)
+#
+# Open: http://localhost:8000
+
+services:
+  app:
+    build: .
+    image: pras-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://pras:pras@postgres:5432/pras
+      REDIS_URL: redis://redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      APP_ENV: ${APP_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pras
+      POSTGRES_USER: pras
+      POSTGRES_PASSWORD: pras
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pras -d pras"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
