@@ -71,6 +71,11 @@ class AnalyzeRequest(BaseModel):
     )
 
 
+def _is_explicit_empty_raw_payload(payload: dict) -> bool:
+    """Return True only when payload explicitly reports zero raw reviews."""
+    return "raw_reviews_count" in payload and int(payload.get("raw_reviews_count", 0) or 0) == 0
+
+
 @app.get("/", include_in_schema=False)
 async def home() -> FileResponse:
     """Serve the single-page browser UI."""
@@ -108,14 +113,29 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
 
     cached = get_cached(asin, request.max_reviews)
     if cached is not None:
-        logger.info("Redis hit: asin=%s max_reviews=%d", asin, request.max_reviews)
-        return JSONResponse(cached)
+        # Do not serve stale "empty scrape" cache entries.
+        if _is_explicit_empty_raw_payload(cached):
+            logger.info(
+                "Ignoring empty Redis cache entry: asin=%s max_reviews=%d",
+                asin,
+                request.max_reviews,
+            )
+        else:
+            logger.info("Redis hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+            return JSONResponse(cached)
 
     stored = get_analysis(asin, request.max_reviews)
     if stored is not None:
-        logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
-        set_cached(asin, request.max_reviews, stored)
-        return JSONResponse(stored)
+        if _is_explicit_empty_raw_payload(stored):
+            logger.info(
+                "Ignoring empty Postgres entry and recomputing: asin=%s max_reviews=%d",
+                asin,
+                request.max_reviews,
+            )
+        else:
+            logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+            set_cached(asin, request.max_reviews, stored)
+            return JSONResponse(stored)
 
     # Run the real analysis pipeline (embeddings + LLM)
     try:
@@ -128,6 +148,7 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
     payload = dataclasses.asdict(result)
 
     # Cache and persist the result for future requests
+    # Persist and cache computed payload.
     save_analysis(asin, request.max_reviews, payload)
     set_cached(asin, request.max_reviews, payload)
     return JSONResponse(payload)

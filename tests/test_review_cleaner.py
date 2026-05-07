@@ -9,6 +9,7 @@ import pytest
 
 from src.processing.review_cleaner import (
     clean_reviews_pipeline,
+    dedupe_similar_reviews,
     filter_spam_reviews,
     normalize_ratings,
     remove_empty_reviews,
@@ -51,7 +52,7 @@ class TestFilterSpamReviews:
                     MockReview("This product exceeded my expectations.", 4.0, NOW),
                     MockReview("Ok", 3.0, NOW),
                 ],
-                ["This product exceeded my expectations."],
+                ["Good", "This product exceeded my expectations."],
             ),
             (
                 [
@@ -59,7 +60,11 @@ class TestFilterSpamReviews:
                     MockReview("This is a normal review with proper text.", 4.0, NOW),
                     MockReview("Wooooooooow amazing", 5.0, NOW),
                 ],
-                ["This is a normal review with proper text."],
+                [
+                    "Greaaaaaaat product!!!!!!",
+                    "This is a normal review with proper text.",
+                    "Wooooooooow amazing",
+                ],
             ),
             (
                 [
@@ -246,6 +251,45 @@ class TestReviewCleaningPipeline:
         assert [r.text for r in cleaned] == [
             "Excellent product with great battery life",
             "Good value for the price, recommended",
+        ]
+
+    def test_clean_reviews_pipeline_soft_dedupes_near_identical_texts(self):
+        reviews = [
+            MockReview("Battery life is great. Works all day.", 5.0, NOW),
+            MockReview("Battery life is great works all day!!!", 5.0, NOW),
+            MockReview("Mouse tracking is precise and smooth.", 4.0, NOW),
+        ]
+        cleaned = clean_reviews_pipeline(reviews)
+        assert [r.text for r in cleaned] == [
+            "Battery life is great. Works all day.",
+            "Mouse tracking is precise and smooth.",
+        ]
+
+
+class TestDedupeSimilarReviews:
+    """Soft dedupe should remove near-identical text while preserving order."""
+
+    def test_dedupe_similar_reviews_keeps_first_and_drops_near_duplicate(self):
+        reviews = [
+            MockReview("Great mouse, very accurate and responsive.", 5.0, NOW),
+            MockReview("Great mouse very accurate and responsive!", 5.0, NOW),
+            MockReview("Cable length is enough for my desk setup.", 4.0, NOW),
+        ]
+        deduped = dedupe_similar_reviews(reviews)
+        assert [r.text for r in deduped] == [
+            "Great mouse, very accurate and responsive.",
+            "Cable length is enough for my desk setup.",
+        ]
+
+    def test_dedupe_similar_reviews_keeps_meaningfully_different_text(self):
+        reviews = [
+            MockReview("Good for office use and basic tasks.", 4.0, NOW),
+            MockReview("Good for gaming due to high DPI sensitivity.", 4.0, NOW),
+        ]
+        deduped = dedupe_similar_reviews(reviews)
+        assert [r.text for r in deduped] == [
+            "Good for office use and basic tasks.",
+            "Good for gaming due to high DPI sensitivity.",
         ]
 
 

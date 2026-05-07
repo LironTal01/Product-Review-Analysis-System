@@ -25,13 +25,10 @@ _PROMO_PHRASES = (
 
 
 def filter_spam_reviews(reviews: Iterable[TReview]) -> list[TReview]:
-    """Remove obvious spam / low-signal reviews based on the text."""
+    """Remove only clear promo spam while keeping most real user phrasing."""
 
     # Precompile patterns once for speed + cleaner loop.
     promo_re = re.compile("|".join(re.escape(p) for p in _PROMO_PHRASES), re.IGNORECASE)
-    repeated_letters_re = re.compile(r"([A-Za-z])\1{2,}")
-    repeated_exclaims_re = re.compile(r"!{3,}")
-
     out: list[TReview] = []
     for review in reviews:
         # If text is missing we just ignore the row here.
@@ -41,20 +38,12 @@ def filter_spam_reviews(reviews: Iterable[TReview]) -> list[TReview]:
 
         normalized = str(text).strip()
 
-        # Too short is usually useless ("Good", "Ok", etc.).
-        if len(normalized) < 15:
+        # Keep short reviews too; only drop near-empty snippets.
+        if len(normalized) < 3:
             continue
 
-        # Promo phrases like "buy now" / "click here".
+        # Drop explicit promo-like rows.
         if promo_re.search(normalized):
-            continue
-
-        # Repeated letters like "Greaaaat" / "Wooooow".
-        if repeated_letters_re.search(normalized):
-            continue
-
-        # Too many exclamation marks in a row usually means spam.
-        if repeated_exclaims_re.search(normalized):
             continue
 
         # Passed all filters -> keep it.
@@ -151,11 +140,38 @@ def validate_review_quality(review: TReview) -> float:
     return max(0.0, min(1.0, float(score)))
 
 
+def _canonical_text_for_dedupe(text: str) -> str:
+    """Canonical text used for soft dedupe comparisons."""
+    lowered = text.lower()
+    lowered = re.sub(r"[^\w\s]", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered)
+    return lowered.strip()
+
+
+def dedupe_similar_reviews(reviews: Iterable[TReview]) -> list[TReview]:
+    """Drop near-identical reviews while preserving original order."""
+    out: list[TReview] = []
+    seen_canonical: set[str] = set()
+    for review in reviews:
+        text = getattr(review, "text", None)
+        if text is None:
+            continue
+        canonical = _canonical_text_for_dedupe(str(text))
+        if not canonical:
+            continue
+        if canonical in seen_canonical:
+            continue
+        seen_canonical.add(canonical)
+        out.append(review)
+    return out
+
+
 def clean_reviews_pipeline(reviews: Iterable[TReview]) -> list[TReview]:
-    """Run the cleaning steps in a fixed order (empty -> rating -> spam)."""
+    """Run the cleaning steps in a fixed order."""
 
     # Order matters: first drop empty texts, then normalize ratings, then spam filter.
     out = remove_empty_reviews(reviews)
     out = normalize_ratings(out)
     out = filter_spam_reviews(out)
+    out = dedupe_similar_reviews(out)
     return out

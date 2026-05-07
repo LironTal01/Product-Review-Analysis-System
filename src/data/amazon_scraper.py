@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import time
+from urllib.parse import urlencode
 
 import requests
 from bs4 import BeautifulSoup
@@ -26,6 +27,14 @@ _REVIEWS_PER_PAGE = 10
 _PAGE_DELAY = 1.5
 _REQUEST_TIMEOUT_SECONDS = 60
 _META_FETCH_RETRIES = 2
+_MAX_REVIEW_PAGES = 20
+_MAX_CONSECUTIVE_STALE_PAGES = 4
+_ROUTE_PROFILES: list[tuple[str, str | None]] = [
+    ("helpful", None),
+    ("recent", None),
+    ("recent", "critical"),
+    ("recent", "positive"),
+]
 
 _RATING_RE = re.compile(r"([0-5](?:[.,][0-9])?)")
 
@@ -45,7 +54,13 @@ def _fetch_page(url: str, api_key: str, country_code: str | None = None) -> str 
     if country_code:
         params["country_code"] = country_code
     try:
-        resp = requests.get(_SCRAPER_API_URL, params=params, timeout=_REQUEST_TIMEOUT_SECONDS)
+        # Bypass HTTP(S)_PROXY from the environment: many proxies block tunneling to third‑party APIs.
+        resp = requests.get(
+            _SCRAPER_API_URL,
+            params=params,
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+            proxies={"http": None, "https": None},
+        )
         resp.raise_for_status()
         logger.info("ScraperAPI returned %d bytes", len(resp.text))
         lower = resp.text.lower()
@@ -167,6 +182,9 @@ def _parse_reviews_from_html(html: str) -> list[Review]:
         text = _extract_review_text(container)
         if not text:
             continue
+        review_id = (container.get("id") or container.get("data-review-id") or "").strip()
+        if review_id.startswith("customer_review-"):
+            review_id = review_id.replace("customer_review-", "", 1)
 
         rating_elem = container.select_one("i[data-hook='review-star-rating'] span.a-icon-alt")
         if not rating_elem:
@@ -194,6 +212,7 @@ def _parse_reviews_from_html(html: str) -> list[Review]:
                 date=date_str,
                 helpful_votes=helpful,
                 verified_purchase=verified,
+                review_id=review_id,
             )
         )
 
@@ -205,12 +224,39 @@ def _normalize_review_text(text: str) -> str:
     return text.strip().lower()
 
 
-def _build_review_page_url(asin: str, page_num: int) -> str:
-    """Build one stable review-page URL for the current page."""
-    return (
-        f"https://www.amazon.com/product-reviews/{asin}"
-        f"?reviewerType=all_reviews&sortBy=recent&pageNumber={page_num}"
-    )
+def _review_dedupe_key(review: Review) -> str:
+    """Build dedupe key from stable review ID when present, else normalized text."""
+    rid = (review.review_id or "").strip()
+    if rid:
+        return f"id:{rid}"
+    return f"text:{_normalize_review_text(review.text)}"
+
+
+def _count_new_unique(candidate_reviews: list[Review], seen_keys: set[str]) -> int:
+    """Count how many candidate reviews are new against the seen set."""
+    return sum(1 for review in candidate_reviews if _review_dedupe_key(review) not in seen_keys)
+
+
+def _build_review_page_urls(
+    asin: str, page_num: int, sort_by: str, filter_by_star: str | None = None
+) -> list[str]:
+    """Build fallback URLs for one page and one route profile."""
+    params: dict[str, str | int] = {
+        "reviewerType": "all_reviews",
+        "sortBy": sort_by,
+        "pageNumber": page_num,
+    }
+    if filter_by_star:
+        params["filterByStar"] = filter_by_star
+    query = urlencode(params)
+    dp_params = f"reviewerType=all_reviews&pageNumber={page_num}&sortBy={sort_by}"
+    if filter_by_star:
+        dp_params += f"&filterByStar={filter_by_star}"
+    # Keep only dp-based variants: in practice they are the most stable with ScraperAPI.
+    return [
+        f"https://www.amazon.com/dp/{asin}/ref=cm_cr_arp_d_viewopt_srt?{dp_params}",
+        f"https://www.amazon.com/dp/{asin}?{query}",
+    ]
 
 
 def scrape_product_meta(asin: str) -> dict[str, str]:
@@ -297,22 +343,62 @@ def scrape_reviews_with_meta(
         return cached
 
     unique_reviews: list[Review] = []
-    seen_texts: set[str] = set()
+    seen_keys: set[str] = set()
     aggregate_meta: dict[str, str] = {}
     pages_needed = (max_reviews + _REVIEWS_PER_PAGE - 1) // _REVIEWS_PER_PAGE
+    pages_to_try = min(_MAX_REVIEW_PAGES, pages_needed + 6)
     consecutive_empty_pages = 0
 
-    for page_num in range(1, pages_needed + 1):
+    for page_num in range(1, pages_to_try + 1):
         logger.info("Scraping page %d for ASIN %s", page_num, asin)
         page_reviews: list[Review] = []
-        page_url = _build_review_page_url(asin, page_num)
-        html = _fetch_page(page_url, api_key)
-        if html:
-            page_reviews = _parse_reviews_from_html(html)
-            if page_num == 1:
-                aggregate_meta.update(_extract_review_page_meta(html))
+        page_meta: dict[str, str] = {}
+        best_new_unique = -1
+        best_reviews_count = 0
 
-        logger.info("Parsed page %d: url=%s reviews=%d", page_num, page_url, len(page_reviews))
+        # Route priority: helpful -> recent -> star filters.
+        # To keep latency sane, page>1 tries only the first two broad routes.
+        route_profiles = _ROUTE_PROFILES if page_num == 1 else _ROUTE_PROFILES[:2]
+        for sort_by, filter_by_star in route_profiles:
+            for page_url in _build_review_page_urls(asin, page_num, sort_by, filter_by_star):
+                html = _fetch_page(page_url, api_key, country_code="us")
+                if not html:
+                    continue
+
+                candidate_reviews = _parse_reviews_from_html(html)
+                if not candidate_reviews:
+                    continue
+
+                candidate_meta = _extract_review_page_meta(html)
+                new_unique = _count_new_unique(candidate_reviews, seen_keys)
+                logger.info(
+                    "Candidate page parsed: route=%s/%s url=%s reviews=%d new_unique=%d",
+                    sort_by,
+                    filter_by_star or "all",
+                    page_url,
+                    len(candidate_reviews),
+                    new_unique,
+                )
+
+                if new_unique > best_new_unique:
+                    best_new_unique = new_unique
+                    best_reviews_count = len(candidate_reviews)
+                    page_reviews = candidate_reviews
+                    page_meta = candidate_meta
+                    # Good enough for this page, avoid extra slow route probes.
+                    if best_new_unique >= _REVIEWS_PER_PAGE:
+                        break
+            if best_new_unique >= _REVIEWS_PER_PAGE:
+                break
+
+        if page_num == 1 and page_meta:
+            aggregate_meta.update(page_meta)
+
+        logger.info(
+            "Selected page %d candidate: reviews=%d",
+            page_num,
+            best_reviews_count,
+        )
 
         if not page_reviews:
             consecutive_empty_pages += 1
@@ -321,17 +407,17 @@ def scrape_reviews_with_meta(
                 page_num,
                 consecutive_empty_pages,
             )
-            if consecutive_empty_pages >= 2:
+            if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
                 logger.info("Stopping after repeated empty pages")
                 break
             continue
 
         new_on_page = 0
         for review in page_reviews:
-            normalized = _normalize_review_text(review.text)
-            if normalized in seen_texts:
+            dedupe_key = _review_dedupe_key(review)
+            if dedupe_key in seen_keys:
                 continue
-            seen_texts.add(normalized)
+            seen_keys.add(dedupe_key)
             unique_reviews.append(review)
             new_on_page += 1
 
@@ -350,7 +436,7 @@ def scrape_reviews_with_meta(
                 page_num,
                 consecutive_empty_pages,
             )
-            if consecutive_empty_pages >= 2:
+            if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
                 logger.info("Stopping after repeated duplicate-only pages")
                 break
             continue

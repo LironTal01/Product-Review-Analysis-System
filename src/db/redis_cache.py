@@ -145,6 +145,7 @@ def get_cached_raw_reviews(
                     date=str(item.get("date", "")),
                     helpful_votes=int(item.get("helpful_votes", 0) or 0),
                     verified_purchase=bool(item.get("verified_purchase", True)),
+                    review_id=str(item.get("review_id", "")),
                 )
             )
         if not reviews:
@@ -174,6 +175,9 @@ def set_cached_raw_reviews(
     """Cache raw reviews + metadata for ``TTL_SECONDS``. Returns ``True`` on success."""
     if not asin or not isinstance(reviews, list):
         return False
+    if not reviews:
+        # Avoid caching empty scrape results so the next request can retry scraping.
+        return False
 
     client = _client()
     if client is None:
@@ -189,6 +193,7 @@ def set_cached_raw_reviews(
                     "date": review.date,
                     "helpful_votes": review.helpful_votes,
                     "verified_purchase": review.verified_purchase,
+                    "review_id": review.review_id,
                 }
                 for review in reviews
             ],

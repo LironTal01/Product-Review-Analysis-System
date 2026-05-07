@@ -10,6 +10,7 @@ class Review:
     """Represents one customer review used in the analysis pipeline.
 
     Attributes:
+        review_id: Stable Amazon review ID when available.
         text: Review text.
         rating: Star rating in the range 1.0-5.0.
         date: Review date string (usually "YYYY-MM-DD").
@@ -22,3 +23,4 @@ class Review:
     date: str = ""
     helpful_votes: int = 0
     verified_purchase: bool = True
+    review_id: str = ""
