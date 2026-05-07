@@ -33,8 +33,10 @@ INDEX_FILE = STATIC_DIR / "index.html"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Best-effort schema bootstrap. Missing/unreachable Postgres is non-fatal."""
+    logger.info("PRAS API starting up")
     init_db()
     yield
+    logger.info("PRAS API shutting down")
 
 
 app = FastAPI(
