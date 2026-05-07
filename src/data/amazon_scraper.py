@@ -7,20 +7,14 @@ with BeautifulSoup.
 
 from __future__ import annotations
 
-import json
 import re
 import time
-from urllib.parse import urlencode
 
 import requests
 from bs4 import BeautifulSoup
 
-from src.data.temp_cache import (
-    load_product_meta,
-    load_raw_reviews,
-    save_product_meta,
-    save_raw_reviews,
-)
+from src.data.temp_cache import load_product_meta, save_product_meta
+from src.db.redis_cache import get_cached_raw_reviews, set_cached_raw_reviews
 from src.models.review import Review
 from src.utils.config import get_settings
 from src.utils.logger import setup_logger
@@ -102,37 +96,12 @@ def _parse_int(value: str) -> int | None:
         return None
 
 
-def _parse_float(value: str) -> float | None:
-    normalized = (value or "").strip().replace(",", ".")
-    if not normalized:
-        return None
-    try:
-        return float(normalized)
-    except ValueError:
-        return None
-
-
-def _format_price(price_value: float | None, currency: str | None) -> str:
-    if price_value is None:
-        return ""
-    symbol = "$" if (currency or "").upper() == "USD" or not currency else f"{currency} "
-    return f"{symbol}{price_value:.2f}"
-
-
 def _extract_display_price(soup: BeautifulSoup) -> str:
-    """Extract the visible 'price to pay' from product page DOM."""
+    """Extract visible product price from common Amazon selectors."""
     selectors = (
         "span.priceToPay span.a-offscreen",
-        "#corePrice_feature_div span.priceToPay span.a-offscreen",
-        "#corePriceDisplay_desktop_feature_div span.priceToPay span.a-offscreen",
-        "#apex_desktop span.priceToPay span.a-offscreen",
-        "#corePriceDisplay_desktop_feature_div span.a-price span.a-offscreen",
-        "#corePrice_feature_div span.a-price span.a-offscreen",
-        "#apex_desktop span.a-price span.a-offscreen",
         "span#priceblock_ourprice",
         "span#priceblock_dealprice",
-        "#corePrice_feature_div .a-price.aok-align-center .a-offscreen",
-        "#corePriceDisplay_desktop_feature_div .a-price.aok-align-center .a-offscreen",
     )
     for selector in selectors:
         elem = soup.select_one(selector)
@@ -141,22 +110,6 @@ def _extract_display_price(soup: BeautifulSoup) -> str:
         text = elem.get_text(" ", strip=True)
         if text:
             return text
-    return ""
-
-
-def _extract_price_from_html_blob(html: str) -> str:
-    """Extract price from embedded JSON snippets in HTML."""
-    patterns = (
-        r'"priceToPay"\s*:\s*\{[^{}]*?"priceAmount"\s*:\s*([0-9]+(?:\.[0-9]{2})?)',
-        r'"corePriceDisplay"\s*:\s*\{[^{}]*?"price"\s*:\s*"[$]?([0-9]+(?:\.[0-9]{2})?)"',
-    )
-    for pattern in patterns:
-        match = re.search(pattern, html)
-        if not match:
-            continue
-        parsed = _parse_float(match.group(1))
-        if parsed is not None:
-            return f"${parsed:.2f}"
     return ""
 
 
@@ -175,65 +128,6 @@ def _extract_review_page_meta(html: str) -> dict[str, str]:
             if parsed is not None:
                 meta["total_review_count"] = str(parsed)
 
-    return meta
-
-
-def _extract_meta_from_json_ld(soup: BeautifulSoup) -> dict[str, str]:
-    """Extract product metadata from JSON-LD blocks if present."""
-    meta: dict[str, str] = {}
-    for script in soup.select("script[type='application/ld+json']"):
-        raw = script.string or script.get_text(strip=True)
-        if not raw:
-            continue
-        try:
-            payload = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-        items = payload if isinstance(payload, list) else [payload]
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-
-            type_value = item.get("@type")
-            type_list = type_value if isinstance(type_value, list) else [type_value]
-            is_product = any(str(t).lower() == "product" for t in type_list if t)
-            if not is_product:
-                continue
-
-            name = item.get("name")
-            if isinstance(name, str) and name.strip():
-                meta["title"] = name.strip()
-
-            image = item.get("image")
-            if isinstance(image, str) and image.strip():
-                meta["image_url"] = image.strip()
-            elif isinstance(image, list) and image:
-                first = image[0]
-                if isinstance(first, str) and first.strip():
-                    meta["image_url"] = first.strip()
-
-            aggregate = item.get("aggregateRating")
-            if isinstance(aggregate, dict):
-                rating_value = _parse_float(str(aggregate.get("ratingValue", "")))
-                rating_count = _parse_int(str(aggregate.get("ratingCount", "")))
-                if rating_value is not None:
-                    meta["amazon_rating"] = f"{rating_value:.1f}"
-                if rating_count is not None:
-                    meta["total_review_count"] = str(rating_count)
-
-            offers = item.get("offers")
-            offer = None
-            if isinstance(offers, dict):
-                offer = offers
-            elif isinstance(offers, list) and offers and isinstance(offers[0], dict):
-                offer = offers[0]
-            if isinstance(offer, dict):
-                price_value = _parse_float(str(offer.get("price", "")))
-                price_currency = str(offer.get("priceCurrency", "")).strip()
-                formatted = _format_price(price_value, price_currency)
-                if formatted:
-                    meta["price"] = formatted
     return meta
 
 
@@ -311,31 +205,12 @@ def _normalize_review_text(text: str) -> str:
     return text.strip().lower()
 
 
-def _count_new_unique(candidate_reviews: list[Review], seen_texts: set[str]) -> int:
-    """Count how many reviews are new against current seen set."""
-    return sum(
-        1 for review in candidate_reviews if _normalize_review_text(review.text) not in seen_texts
+def _build_review_page_url(asin: str, page_num: int) -> str:
+    """Build one stable review-page URL for the current page."""
+    return (
+        f"https://www.amazon.com/product-reviews/{asin}"
+        f"?reviewerType=all_reviews&sortBy=recent&pageNumber={page_num}"
     )
-
-
-def _build_review_page_urls(asin: str, page_num: int) -> list[str]:
-    """Build fallback URL variants for a review page."""
-    query = urlencode(
-        {
-            "reviewerType": "all_reviews",
-            "sortBy": "recent",
-            "pageNumber": page_num,
-        }
-    )
-    return [
-        (
-            f"https://www.amazon.com/dp/{asin}/ref=cm_cr_arp_d_viewopt_srt"
-            f"?reviewerType=all_reviews&pageNumber={page_num}&sortBy=recent"
-        ),
-        f"https://www.amazon.com/dp/{asin}?{query}",
-        f"https://www.amazon.com/product-reviews/{asin}/?{query}",
-        f"https://www.amazon.com/product-reviews/{asin}/ref=cm_cr_getr_d_paging_btm_next_{page_num}?{query}",
-    ]
 
 
 def scrape_product_meta(asin: str) -> dict[str, str]:
@@ -367,8 +242,6 @@ def scrape_product_meta(asin: str) -> dict[str, str]:
     soup = BeautifulSoup(html, "html.parser")
     meta: dict[str, str] = {}
 
-    meta.update(_extract_meta_from_json_ld(soup))
-
     title_elem = soup.find("span", {"id": "productTitle"})
     if title_elem:
         meta["title"] = title_elem.get_text(strip=True)
@@ -380,10 +253,6 @@ def scrape_product_meta(asin: str) -> dict[str, str]:
     display_price = _extract_display_price(soup)
     if display_price:
         meta["price"] = display_price
-    else:
-        blob_price = _extract_price_from_html_blob(html)
-        if blob_price:
-            meta["price"] = blob_price
 
     if "amazon_rating" not in meta:
         rating_anchor = soup.find("span", {"id": "acrPopover"})
@@ -406,15 +275,6 @@ def scrape_product_meta(asin: str) -> dict[str, str]:
     if "total_review_count" in meta:
         logger.info("Amazon review count extracted: %s", meta["total_review_count"])
 
-    if "price" not in meta:
-        price_elem = soup.find("span", {"class": "a-price-whole"})
-        if price_elem:
-            fraction = soup.find("span", {"class": "a-price-fraction"})
-            price_text = price_elem.get_text(strip=True).rstrip(".")
-            if fraction:
-                price_text += "." + fraction.get_text(strip=True)
-            meta["price"] = f"${price_text}"
-
     save_product_meta(asin, meta)
     logger.info("Product meta: %s", meta.get("title", "no title"))
     return meta
@@ -431,7 +291,8 @@ def scrape_reviews_with_meta(
         return [], {}
 
     max_reviews = max(25, min(max_reviews, 250))
-    cached = load_raw_reviews(asin, max_reviews)
+    # Read-through Redis raw cache keyed by ``(asin, max_reviews)``.
+    cached = get_cached_raw_reviews(asin, max_reviews)
     if cached is not None:
         return cached
 
@@ -444,36 +305,14 @@ def scrape_reviews_with_meta(
     for page_num in range(1, pages_needed + 1):
         logger.info("Scraping page %d for ASIN %s", page_num, asin)
         page_reviews: list[Review] = []
-        best_candidate_new = -1
-        best_candidate_total = 0
-        best_candidate_meta: dict[str, str] = {}
-        for candidate_url in _build_review_page_urls(asin, page_num):
-            html = _fetch_page(candidate_url, api_key)
-            if not html:
-                continue
+        page_url = _build_review_page_url(asin, page_num)
+        html = _fetch_page(page_url, api_key)
+        if html:
+            page_reviews = _parse_reviews_from_html(html)
+            if page_num == 1:
+                aggregate_meta.update(_extract_review_page_meta(html))
 
-            candidate_reviews = _parse_reviews_from_html(html)
-            if not candidate_reviews:
-                continue
-
-            candidate_meta = _extract_review_page_meta(html)
-            new_unique = _count_new_unique(candidate_reviews, seen_texts)
-
-            logger.info(
-                "Candidate page parsed: url=%s reviews=%d new_unique=%d",
-                candidate_url,
-                len(candidate_reviews),
-                new_unique,
-            )
-
-            if new_unique > best_candidate_new:
-                best_candidate_new = new_unique
-                best_candidate_total = len(candidate_reviews)
-                page_reviews = candidate_reviews
-                best_candidate_meta = candidate_meta
-
-        if page_num == 1 and best_candidate_meta:
-            aggregate_meta.update(best_candidate_meta)
+        logger.info("Parsed page %d: url=%s reviews=%d", page_num, page_url, len(page_reviews))
 
         if not page_reviews:
             consecutive_empty_pages += 1
@@ -504,13 +343,6 @@ def scrape_reviews_with_meta(
         )
         if new_on_page > 0:
             consecutive_empty_pages = 0
-        if best_candidate_total > 0:
-            logger.info(
-                "Accepted candidate for page %d: parsed=%d, new_unique=%d",
-                page_num,
-                best_candidate_total,
-                new_on_page,
-            )
         if new_on_page == 0:
             consecutive_empty_pages += 1
             logger.info(
@@ -530,5 +362,6 @@ def scrape_reviews_with_meta(
 
     result = unique_reviews[:max_reviews]
     logger.info("Scraping done: %d unique reviews for ASIN %s", len(result), asin)
-    save_raw_reviews(asin, max_reviews, result, aggregate_meta)
+    # Persist raw payload to Redis so repeated calls can skip scraping.
+    set_cached_raw_reviews(asin, max_reviews, result, aggregate_meta)
     return result, aggregate_meta

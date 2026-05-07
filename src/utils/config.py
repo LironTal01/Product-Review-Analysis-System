@@ -33,6 +33,8 @@ class Settings:
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
         self.openai_llm_model = os.getenv("OPENAI_LLM_MODEL", DEFAULT_LLM_MODEL)
         self.scraper_api_key = os.getenv("SCRAPER_API_KEY", "")
+        # Disabled by default so production runs never synthesize reviews implicitly.
+        self.allow_mock_fallback = _parse_bool(os.getenv("ALLOW_MOCK_FALLBACK"), False)
 
         self.database_url = os.getenv("DATABASE_URL", "")
         self.redis_url = os.getenv("REDIS_URL", "")

@@ -14,6 +14,7 @@ import pytest
 import redis
 
 from src.db import redis_cache
+from src.models.review import Review
 from src.utils.config import get_settings
 
 pytestmark = pytest.mark.unit
@@ -46,6 +47,7 @@ def _fake_client() -> MagicMock:
 
 def test_key_format():
     assert redis_cache._key("B08N5WRWNW", 100) == "analysis:B08N5WRWNW:100"
+    assert redis_cache._raw_key("B08N5WRWNW", 100) == "raw_reviews:B08N5WRWNW:100"
 
 
 # ---------------------------------------------------------------------------
@@ -179,3 +181,70 @@ def test_get_cached_handles_redis_error(monkeypatch):
 
     with patch.object(redis.Redis, "from_url", return_value=client):
         assert redis_cache.get_cached("B08N5WRWNW", 100) is None
+
+
+def test_set_cached_raw_reviews_writes_json_with_ttl(monkeypatch):
+    monkeypatch.setenv("REDIS_URL", "redis://x")
+    client = _fake_client()
+    reviews = [
+        Review(
+            text="Great mouse",
+            rating=5.0,
+            date="2026-01-01",
+            helpful_votes=2,
+            verified_purchase=True,
+        ),
+        Review(
+            text="Battery is okay",
+            rating=3.0,
+            date="2026-01-02",
+            helpful_votes=1,
+            verified_purchase=True,
+        ),
+    ]
+
+    with patch.object(redis.Redis, "from_url", return_value=client):
+        assert (
+            redis_cache.set_cached_raw_reviews(
+                "B08N5WRWNW", 50, reviews, {"total_review_count": "123"}
+            )
+            is True
+        )
+
+    client.set.assert_called_once()
+    args, kwargs = client.set.call_args
+    key, value = args
+    assert key == "raw_reviews:B08N5WRWNW:50"
+    payload = json.loads(value)
+    assert isinstance(payload.get("reviews"), list)
+    assert len(payload["reviews"]) == 2
+    assert payload["meta"] == {"total_review_count": "123"}
+    assert kwargs.get("ex") == redis_cache.TTL_SECONDS
+
+
+def test_get_cached_raw_reviews_returns_typed_reviews(monkeypatch):
+    monkeypatch.setenv("REDIS_URL", "redis://x")
+    client = _fake_client()
+    client.get.return_value = json.dumps(
+        {
+            "reviews": [
+                {
+                    "text": "Works great",
+                    "rating": 4.0,
+                    "date": "2026-01-01",
+                    "helpful_votes": 3,
+                    "verified_purchase": True,
+                }
+            ],
+            "meta": {"total_review_count": "200"},
+        }
+    )
+
+    with patch.object(redis.Redis, "from_url", return_value=client):
+        result = redis_cache.get_cached_raw_reviews("B08N5WRWNW", 50)
+
+    assert result is not None
+    reviews, meta = result
+    assert len(reviews) == 1
+    assert isinstance(reviews[0], Review)
+    assert meta == {"total_review_count": "200"}
