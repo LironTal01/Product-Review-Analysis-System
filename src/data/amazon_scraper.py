@@ -225,11 +225,14 @@ def _normalize_review_text(text: str) -> str:
 
 
 def _review_dedupe_key(review: Review) -> str:
-    """Build dedupe key from stable review ID when present, else normalized text."""
-    rid = (review.review_id or "").strip()
-    if rid:
-        return f"id:{rid}"
-    return f"text:{_normalize_review_text(review.text)}"
+    """Merge duplicates using body + rating + date.
+
+    Amazon markup IDs are unreliable across sorts/routes (missing, reused, or unstable),
+    which made ID-first dedupe stop pagination early with far fewer rows than expected.
+    """
+    norm = _normalize_review_text(review.text)
+    date_part = (review.date or "").strip()
+    return f"text:{norm}|rating:{review.rating}|date:{date_part}"
 
 
 def _count_new_unique(candidate_reviews: list[Review], seen_keys: set[str]) -> int:
@@ -357,8 +360,8 @@ def scrape_reviews_with_meta(
         best_reviews_count = 0
 
         # Route priority: helpful -> recent -> star filters.
-        # To keep latency sane, page>1 tries only the first two broad routes.
-        route_profiles = _ROUTE_PROFILES if page_num == 1 else _ROUTE_PROFILES[:2]
+        # Use every profile on each page so stale pagination on one sort still yields rows from others.
+        route_profiles = _ROUTE_PROFILES
         for sort_by, filter_by_star in route_profiles:
             for page_url in _build_review_page_urls(asin, page_num, sort_by, filter_by_star):
                 html = _fetch_page(page_url, api_key, country_code="us")

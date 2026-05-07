@@ -2,7 +2,7 @@
 
 This module provides two read-through caches:
 1. ``analysis:{asin}:{max_reviews}`` for final API payloads.
-2. ``raw_reviews:{asin}:{max_reviews}`` for scraped raw review records.
+2. ``raw_reviews:v2:{asin}:{max_reviews}`` for scraped raw review records.
 """
 
 from __future__ import annotations
@@ -27,7 +27,8 @@ def _key(asin: str, max_reviews: int) -> str:
 
 def _raw_key(asin: str, max_reviews: int) -> str:
     """Build Redis key for raw review payload."""
-    return f"raw_reviews:{asin}:{max_reviews}"
+    # Bump when scrape shape/dedupe changes so stale shorter payloads are not reused.
+    return f"raw_reviews:v2:{asin}:{max_reviews}"
 
 
 def _client() -> redis.Redis | None:
