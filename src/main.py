@@ -9,6 +9,7 @@ delegate to it instead of returning the mock payload.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -16,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.db.postgres import get_analysis, init_db, save_analysis
 from src.utils.logger import logger
 from src.utils.url_parser import (
     AmazonURLError,
@@ -26,10 +28,19 @@ from src.utils.url_parser import (
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Best-effort schema bootstrap. Missing/unreachable Postgres is non-fatal."""
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="Product Review Analysis System",
     description="Analyze Amazon product reviews with AI.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -63,9 +74,16 @@ async def health() -> dict[str, str]:
 async def analyze(request: AnalyzeRequest) -> JSONResponse:
     """Validate the URL and return an analysis payload.
 
-    Until the core pipeline is wired, this endpoint validates the Amazon URL
-    using the existing ``url_parser`` and returns a deterministic mock payload
-    that matches the eventual ``AnalysisResult`` schema.
+    Persistence flow:
+    1. Validate URL → ``asin``.
+    2. Read-through Postgres: if a previous analysis exists for
+       ``(asin, max_reviews)``, return it (no recomputation).
+    3. Otherwise compute (currently a deterministic mock until Partner A's
+       core pipeline lands), persist the result, and return it.
+
+    The database is **optional**: when ``DATABASE_URL`` is empty or
+    Postgres is unreachable, both the read and the write degrade silently
+    and the endpoint still returns a fresh payload.
     """
     try:
         asin = extract_asin(request.amazon_url)
@@ -75,7 +93,13 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
 
     logger.info("Analyze request accepted: asin=%s max_reviews=%d", asin, request.max_reviews)
 
+    cached = get_analysis(asin, request.max_reviews)
+    if cached is not None:
+        logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+        return JSONResponse(cached)
+
     payload = _build_mock_analysis(asin=asin, max_reviews=request.max_reviews)
+    save_analysis(asin, request.max_reviews, payload)
     return JSONResponse(payload)
 
 
