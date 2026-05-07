@@ -1,7 +1,7 @@
 """Redis cache helpers for analysis and raw review payloads.
 
 This module provides two read-through caches:
-1. ``analysis:{asin}:{max_reviews}`` for final API payloads.
+1. ``analysis:v2:{asin}:{max_reviews}`` for final API payloads.
 2. ``raw_reviews:v2:{asin}:{max_reviews}`` for scraped raw review records.
 """
 
@@ -22,7 +22,7 @@ TTL_SECONDS = 172_800  # 48 hours
 
 def _key(asin: str, max_reviews: int) -> str:
     """Build Redis key for final analysis payload."""
-    return f"analysis:{asin}:{max_reviews}"
+    return f"analysis:v2:{asin}:{max_reviews}"
 
 
 def _raw_key(asin: str, max_reviews: int) -> str:
