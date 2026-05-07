@@ -24,6 +24,7 @@ def setup_logger(
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
+    logger.propagate = False
 
     if logger.handlers:
         return logger

@@ -35,7 +35,6 @@
   const confidenceExplanation = document.getElementById("confidence-explanation");
   const prosList = document.getElementById("pros-list");
   const consList = document.getElementById("cons-list");
-  const ratingBars = document.getElementById("rating-bars");
   const negativeSummary = document.getElementById("negative-summary");
   const aspectsList = document.getElementById("aspects-list");
   const aspectFilter = document.getElementById("aspect-filter");
@@ -245,10 +244,11 @@
       rating > 0 ? `★ ${rating.toFixed(1)} avg` : "";
 
     const reviewCount = Number(data.total_review_count);
+    const analyzedCount = Number(data.total_reviews_analyzed || 0);
     totalReviewCount.textContent =
       reviewCount > 0
-        ? `${reviewCount.toLocaleString()} total reviews`
-        : `${(data.total_reviews_analyzed || 0).toLocaleString()} reviews analyzed`;
+        ? `${reviewCount.toLocaleString()} total reviews (${analyzedCount.toLocaleString()} analyzed)`
+        : `${analyzedCount.toLocaleString()} reviews analyzed`;
 
     summaryText.textContent = data.summary_text || "—";
     recommendation.textContent = data.recommendation || "—";
@@ -262,7 +262,6 @@
     renderList(prosList, data.pros, "No pros highlighted yet.");
     renderList(consList, data.cons, "No cons highlighted yet.");
 
-    renderRatingBars(data.rating_distribution || {});
     negativeSummary.textContent =
       data.negative_summary || "No notable complaints found.";
 
@@ -284,41 +283,6 @@
       const li = document.createElement("li");
       li.textContent = String(item);
       ul.appendChild(li);
-    }
-  }
-
-  function renderRatingBars(dist) {
-    ratingBars.innerHTML = "";
-    const total = Object.values(dist).reduce(
-      (acc, n) => acc + (Number(n) || 0),
-      0,
-    );
-
-    for (let star = 5; star >= 1; star--) {
-      const count = Number(dist[star] ?? dist[String(star)]) || 0;
-      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-
-      const row = document.createElement("div");
-      row.className = "rating-row";
-
-      const label = document.createElement("span");
-      label.className = "label";
-      label.textContent = `${star} ★`;
-
-      const track = document.createElement("div");
-      track.className = "rating-bar-track";
-
-      const fill = document.createElement("div");
-      fill.className = "rating-bar-fill";
-      fill.style.width = pct + "%";
-      track.appendChild(fill);
-
-      const countEl = document.createElement("span");
-      countEl.className = "count";
-      countEl.textContent = count.toLocaleString();
-
-      row.append(label, track, countEl);
-      ratingBars.appendChild(row);
     }
   }
 

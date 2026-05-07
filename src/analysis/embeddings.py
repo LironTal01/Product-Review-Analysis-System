@@ -8,6 +8,7 @@ import numpy as np
 from openai import OpenAI
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.data.temp_cache import load_embeddings, save_embeddings
 from src.models.review import Review
 from src.utils.logger import setup_logger
 
@@ -26,6 +27,10 @@ def embed_reviews(reviews: list[Review], client: OpenAI) -> np.ndarray:
 
     # Pull out just the text from each review
     texts = [r.text for r in reviews]
+    cached = load_embeddings(_MODEL, texts)
+    if cached is not None:
+        return cached
+
     all_embeddings: list[list[float]] = []
 
     # Send texts in batches so we don't hit API limits
@@ -43,7 +48,9 @@ def embed_reviews(reviews: list[Review], client: OpenAI) -> np.ndarray:
             all_embeddings.append(item.embedding)
 
     # Convert list of lists into a 2D numpy array
-    return np.array(all_embeddings, dtype=np.float32)
+    result = np.array(all_embeddings, dtype=np.float32)
+    save_embeddings(_MODEL, texts, result)
+    return result
 
 
 def select_top_k(

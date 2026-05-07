@@ -54,7 +54,6 @@ class AnalysisResult:
         pros: List of positive points extracted from reviews.
         cons: List of negative points extracted from reviews.
         aspects: List of extracted aspect-level insights.
-        rating_distribution: Mapping of star value (1-5) to count within analyzed reviews.
         negative_summary: Text summary of common issues from low-star reviews.
         total_reviews_analyzed: Number of reviews actually analyzed by the pipeline. Unit: reviews. Must be >= 0.
         avg_rating: Mean rating across analyzed reviews on a 1.0-5.0 scale.
@@ -75,7 +74,6 @@ class AnalysisResult:
     cons: list[str] = field(default_factory=list)
     aspects: list[AspectInfo] = field(default_factory=list)
 
-    rating_distribution: dict[int, int] = field(default_factory=dict)
     negative_summary: str = ""
 
     total_reviews_analyzed: int = 0

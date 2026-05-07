@@ -11,8 +11,8 @@ import random
 from src.models.review import Review
 
 # ── min / max limits for the max_reviews parameter ──────────────────────
-_MIN_REVIEWS = 100
-_MAX_REVIEWS = 500
+_MIN_REVIEWS = 25
+_MAX_REVIEWS = 250
 
 # ── per-ASIN review templates ───────────────────────────────────────────
 # Each tuple: (text, rating, date, helpful_votes, verified_purchase)
@@ -270,7 +270,7 @@ def get_mock_reviews(asin: str, max_reviews: int = 200) -> list[Review]:
 
     Args:
         asin: Amazon product identifier (e.g. "B08N5WRWNW").
-        max_reviews: Desired number of reviews, clamped to 100-500.
+        max_reviews: Desired number of reviews, clamped to 25-250.
 
     Returns:
         List of Review dataclass instances, length == clamped max_reviews.
@@ -278,9 +278,11 @@ def get_mock_reviews(asin: str, max_reviews: int = 200) -> list[Review]:
     Raises:
         ValueError: If the ASIN is not in the mock catalog.
     """
+    # If ASIN is unknown, pick a deterministic fallback pool by ASIN hash
+    # so different products do not always return the same mock theme.
     if asin not in _CATALOG:
-        available = ", ".join(sorted(_CATALOG))
-        raise ValueError(f"Unknown ASIN '{asin}'. Available mock ASINs: {available}")
+        keys = sorted(_CATALOG.keys())
+        asin = keys[sum(ord(ch) for ch in asin) % len(keys)]
 
     max_reviews = max(_MIN_REVIEWS, min(max_reviews, _MAX_REVIEWS))
     rng = random.Random(42)

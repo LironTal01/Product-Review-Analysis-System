@@ -41,20 +41,23 @@ def _mock_openai_client() -> MagicMock:
     client = MagicMock()
 
     # Embeddings: return random vectors for any input
-    def fake_embed(_model, input):
-        data = [MagicMock(embedding=np.random.default_rng(42).random(256).tolist()) for _ in input]
+    def fake_embed(*args, **kwargs):
+        batch = kwargs.get("input")
+        if batch is None and len(args) >= 2:
+            batch = args[1]
+        if batch is None:
+            batch = []
+        data = [MagicMock(embedding=np.random.default_rng(42).random(256).tolist()) for _ in batch]
         resp = MagicMock()
         resp.data = data
         return resp
 
     client.embeddings.create = MagicMock(side_effect=fake_embed)
 
-    # Chat completions: return the canned LLM response
-    choice = MagicMock()
-    choice.message.content = json.dumps(_FAKE_LLM_RESPONSE)
-    completion = MagicMock()
-    completion.choices = [choice]
-    client.chat.completions.create.return_value = completion
+    # Responses API: return the canned LLM JSON
+    llm_response = MagicMock()
+    llm_response.output_text = json.dumps(_FAKE_LLM_RESPONSE)
+    client.responses.create.return_value = llm_response
 
     return client
 
@@ -96,14 +99,6 @@ class TestAnalyzeProductEndToEnd:
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert result.total_reviews_analyzed >= 1
-
-    @patch("src.core.analyzer.OpenAI")
-    def test_rating_distribution_is_populated(self, mock_openai_cls):
-        mock_openai_cls.return_value = _mock_openai_client()
-
-        result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
-
-        assert sum(result.rating_distribution.values()) > 0
 
     @patch("src.core.analyzer.OpenAI")
     def test_pros_or_cons_present(self, mock_openai_cls):

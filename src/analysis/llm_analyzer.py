@@ -10,14 +10,15 @@ from openai import OpenAI
 
 from src.models.analysis import StatsResult
 from src.models.review import Review
+from src.utils.config import get_settings
 from src.utils.logger import setup_logger
 
 logger = setup_logger("pras.llm_analyzer")
 
-_MODEL = "gpt-5-nano"
+_DEFAULT_MODEL = "gpt-5-nano"
 
 # Maximum tokens for the LLM response
-_MAX_COMPLETION_TOKENS = 4000
+_MAX_OUTPUT_TOKENS = 1800
 
 # The JSON keys we expect in the LLM response
 _EXPECTED_KEYS = [
@@ -64,7 +65,6 @@ def _build_user_prompt(reviews: list[Review], stats: StatsResult) -> str:
     stats_block = (
         f"Total reviews analyzed: {stats.total_reviews}\n"
         f"Average rating: {stats.avg_rating:.2f}/5\n"
-        f"Rating distribution: {stats.rating_distribution}\n"
         f"Negative reviews (1-3 stars): {stats.negative_count}"
     )
 
@@ -74,6 +74,40 @@ def _build_user_prompt(reviews: list[Review], stats: StatsResult) -> str:
         f"{reviews_block}\n\n"
         "Please analyze these reviews and return the JSON response."
     )
+
+
+def _resolve_model_name() -> str:
+    """Resolve the configured LLM model with a GPT-5+ safety fallback."""
+    configured = (get_settings().openai_llm_model or "").strip()
+    if not configured:
+        return _DEFAULT_MODEL
+
+    if not configured.lower().startswith("gpt-5"):
+        logger.warning(
+            "Configured LLM model '%s' is not GPT-5+, using '%s' instead",
+            configured,
+            _DEFAULT_MODEL,
+        )
+        return _DEFAULT_MODEL
+    return configured
+
+
+def _extract_response_text(response: object) -> str:
+    """Extract plain text from OpenAI Responses API object."""
+    output_text = getattr(response, "output_text", "")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text
+
+    chunks: list[str] = []
+    output_items = getattr(response, "output", []) or []
+    for item in output_items:
+        content_items = getattr(item, "content", []) or []
+        for content in content_items:
+            text = getattr(content, "text", "")
+            if isinstance(text, str) and text:
+                chunks.append(text)
+
+    return "\n".join(chunks).strip()
 
 
 def _apply_defaults(raw: dict) -> dict:
@@ -120,19 +154,30 @@ def analyze_with_llm(
     # Build the two parts of the prompt
     system_prompt = _build_system_prompt()
     user_prompt = _build_user_prompt(top_k_reviews, stats)
+    model = _resolve_model_name()
 
-    # Call the OpenAI chat API
-    response = client.chat.completions.create(
-        model=_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        max_completion_tokens=_MAX_COMPLETION_TOKENS,
-    )
+    # Use Responses API for GPT-5 models; retry if the model returns no text.
+    raw_text = ""
+    for attempt in range(3):
+        try:
+            response = client.responses.create(
+                model=model,
+                input=[
+                    {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+                    {"role": "user", "content": [{"type": "input_text", "text": user_prompt}]},
+                ],
+                reasoning={"effort": "low"},
+                max_output_tokens=_MAX_OUTPUT_TOKENS,
+            )
+        except Exception as exc:
+            logger.warning("LLM request failed (attempt %d/3): %s", attempt + 1, exc)
+            continue
 
-    # Extract the text content from the response
-    raw_text = response.choices[0].message.content or ""
+        raw_text = _extract_response_text(response)
+        if raw_text.strip():
+            break
+        logger.warning("LLM returned empty response (attempt %d/3), retrying", attempt + 1)
+
     logger.info("Got LLM response (%d chars)", len(raw_text))
 
     # Sometimes the LLM wraps JSON in markdown code blocks, strip them

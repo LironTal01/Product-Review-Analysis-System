@@ -1,27 +1,44 @@
 """Configuration management for PRAS."""
 
+import os
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+DEFAULT_APP_NAME = "PRAS"
+DEFAULT_APP_ENV = "development"
+DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_LLM_MODEL = "gpt-5-nano"
 
 
-class Settings(BaseSettings):
+def _parse_bool(value, default):
+    """Parse env boolean values safely."""
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+class Settings:
     """Application settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    def __init__(self):
+        self.app_name = os.getenv("APP_NAME", DEFAULT_APP_NAME)
+        self.app_env = os.getenv("APP_ENV", DEFAULT_APP_ENV)
+        self.debug = _parse_bool(os.getenv("DEBUG"), True)
+        self.log_level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
 
-    app_name: str = "PRAS"
-    app_env: str = "development"
-    debug: bool = True
-    log_level: str = "INFO"
+        self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
+        self.openai_llm_model = os.getenv("OPENAI_LLM_MODEL", DEFAULT_LLM_MODEL)
+        self.scraper_api_key = os.getenv("SCRAPER_API_KEY", "")
 
-    openai_api_key: str = ""
-
-    database_url: str = ""
-    redis_url: str = ""
+        self.database_url = os.getenv("DATABASE_URL", "")
+        self.redis_url = os.getenv("REDIS_URL", "")
 
 
 @lru_cache
-def get_settings() -> Settings:
+def get_settings():
     """Get cached settings instance."""
     return Settings()
