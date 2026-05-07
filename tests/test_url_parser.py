@@ -28,6 +28,8 @@ LONG_LISTING_URL = (
             "B012345678",
         ),
         ("https://www.amazon.com/gp/product/B087QZXR2L", "B087QZXR2L"),
+        # Path segments before /gp/product/ should not matter.
+        ("https://www.amazon.com/some/path/gp/product/B087QZXR2L", "B087QZXR2L"),
         (
             "https://www.amazon.com/dp/B08N5WRWNW?ref=x&keywords=test",
             "B08N5WRWNW",
@@ -37,6 +39,11 @@ LONG_LISTING_URL = (
         ("https://www.amazon.co.uk/dp/B08N5WRWNW", "B08N5WRWNW"),
         ("https://www.amazon.com/dp/b08n5wrwnw", "B08N5WRWNW"),
         (LONG_LISTING_URL, "B0DGW54P27"),
+        # No 'www' and uppercase host should still be accepted.
+        ("https://amazon.com/dp/B08N5WRWNW", "B08N5WRWNW"),
+        ("https://WWW.AMAZON.COM/dp/B08N5WRWNW", "B08N5WRWNW"),
+        # ASIN is 10 alphanumerics; it does not have to start with 'B'.
+        ("https://www.amazon.com/dp/A08N5WRWNW", "A08N5WRWNW"),
     ],
 )
 def test_extract_asin_returns_expected(url, expected_asin):
@@ -53,7 +60,8 @@ def test_extract_asin_returns_expected(url, expected_asin):
         ("", AmazonURLError),
         ("https://www.amazon.com/bestsellers", InvalidASINError),
         ("https://www.amazon.com/dp/B08N5WRW", InvalidASINError),
-        ("https://www.amazon.com/dp/A08N5WRWNW", InvalidASINError),
+        # Non-alphanumeric tokens are not valid ASINs.
+        ("https://www.amazon.com/dp/B08N5WRW-W", InvalidASINError),
     ],
 )
 def test_extract_asin_raises(url, expected_exc):
@@ -62,9 +70,9 @@ def test_extract_asin_raises(url, expected_exc):
         extract_asin(url)
 
 
-def test_extract_asin_none_raises_typeerror():
+def test_extract_asin_none_raises_amazon_url_error():
     """None is not a valid input type for extract_asin."""
-    with pytest.raises(TypeError):
+    with pytest.raises(AmazonURLError):
         extract_asin(None)
 
 
@@ -73,6 +81,8 @@ def test_extract_asin_none_raises_typeerror():
     [
         "https://www.amazon.com/dp/B08N5WRWNW",
         "https://www.amazon.co.uk/dp/B08N5WRWNW",
+        "https://amazon.com/dp/B08N5WRWNW",
+        "https://WWW.AMAZON.COM/dp/B08N5WRWNW",
     ],
 )
 def test_validate_amazon_url_accepts(url):

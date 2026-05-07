@@ -31,8 +31,8 @@ AMAZON_DOMAINS = {
     "smile.amazon.com",
 }
 
-# ASIN format: 10 characters, starts with B, alphanumeric
-ASIN_PATTERN = re.compile(r"^B[A-Z0-9]{9}$")
+# ASIN format: 10 alphanumeric characters (case-insensitive input)
+ASIN_PATTERN = re.compile(r"^[A-Z0-9]{10}$")
 
 # Grab candidate token from path; final validity is ASIN_PATTERN.
 DP_PATTERN = re.compile(r"/dp/([A-Z0-9@_-]{8,12})(?:/|$|\?|#)", re.IGNORECASE)
@@ -57,8 +57,8 @@ def validate_amazon_url(url: str) -> bool:
         if parsed.scheme.lower() not in ("http", "https"):
             return False
 
-        # Check if domain is Amazon (case-insensitive)
-        domain = parsed.netloc.lower()
+        # Check if domain is Amazon (case-insensitive, no port)
+        domain = (parsed.hostname or "").lower()
         # Remove 'www.' prefix if present
         if domain.startswith("www."):
             domain = domain[4:]
@@ -70,7 +70,7 @@ def validate_amazon_url(url: str) -> bool:
 
 
 def _validate_asin_format(asin: str) -> bool:
-    """True if asin matches B + nine alphanumerics (case-insensitive input)."""
+    """True if asin matches 10 alphanumerics (case-insensitive input)."""
     if not asin or not isinstance(asin, str):
         return False
 
@@ -92,10 +92,7 @@ def _extract_asin_from_path(path: str) -> str | None:
 
 
 def extract_asin(url: str) -> str:
-    """Return ASIN string or raise AmazonURLError / InvalidASINError / TypeError."""
-    if url is None:
-        raise TypeError("URL cannot be None")
-
+    """Return ASIN string or raise AmazonURLError / InvalidASINError."""
     if not isinstance(url, str):
         raise AmazonURLError("URL must be a string")
 
@@ -125,15 +122,3 @@ def extract_asin(url: str) -> str:
         raise InvalidASINError(f"Invalid ASIN format: {asin}")
 
     return asin
-
-
-def extract_asins_batch(urls: list[str]) -> dict[str, str]:
-    """Map each URL to its ASIN; skip entries that cannot be parsed."""
-    results = {}
-    for url in urls:
-        try:
-            results[url] = extract_asin(url)
-        except (AmazonURLError, InvalidASINError, TypeError):
-            # Skip invalid URLs
-            continue
-    return results
