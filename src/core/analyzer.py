@@ -15,6 +15,7 @@ from src.analysis.llm_analyzer import analyze_with_llm
 from src.data.amazon_scraper import scrape_product_meta, scrape_reviews_with_meta
 from src.data.mock_reviews import PRODUCT_META, get_mock_reviews
 from src.models.analysis import AnalysisResult, AspectInfo, StatsResult
+from src.models.review import Review
 from src.processing.review_cleaner import clean_reviews_pipeline
 from src.processing.stats_calculator import calculate_stats
 from src.utils.config import get_settings
@@ -109,9 +110,14 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
     Returns:
         Fully populated AnalysisResult ready for JSON serialization.
     """
+    # Keep request size within API/UI contract bounds.
+    max_reviews = max(25, min(max_reviews, 250))
+
     # 1. Extract ASIN from URL
     asin = extract_asin(url)
     logger.info("Pipeline start: asin=%s max_reviews=%d", asin, max_reviews)
+    # Read runtime flags (e.g., whether mock fallback is allowed).
+    settings = get_settings()
 
     # 2. Try to scrape real reviews from Amazon first
     reviews, review_page_meta = scrape_reviews_with_meta(asin, max_reviews)
@@ -120,12 +126,22 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
         # Got enough real reviews, use them
         logger.info("Using %d REAL reviews from Amazon", len(reviews))
         use_real = True
-    else:
+    elif settings.allow_mock_fallback:
         # Scraping failed or got too few, fall back to mock data
         logger.warning("Scraping got only %d reviews, falling back to mock data", len(reviews))
         reviews = get_mock_reviews(asin, max_reviews)
         use_real = False
         logger.info("Using %d MOCK reviews", len(reviews))
+    else:
+        # Strict mode: keep only real scraped reviews, even when count is low.
+        logger.warning(
+            "Scraping returned only %d reviews (requested=%d); mock fallback disabled",
+            len(reviews),
+            max_reviews,
+        )
+        use_real = True
+    # Log scraped payload size so debugging "asked vs received" is explicit.
+    logger.info("Raw review payload size: %d (requested=%d)", len(reviews), max_reviews)
 
     # 3. Clean and filter
     cleaned = clean_reviews_pipeline(reviews)
@@ -138,7 +154,6 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
     confidence = calculate_confidence(cleaned)
 
     # 6-7. Embed and select top-K, then send to LLM
-    settings = get_settings()
     llm_output: dict
     try:
         client = OpenAI(api_key=settings.openai_api_key)
@@ -163,7 +178,7 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
         logger.info("Scraped product meta: %s", list(real_meta.keys()))
 
     # 9. Assemble final result
-    return _assemble_result(llm_output, stats, confidence, asin, real_meta)
+    return _assemble_result(llm_output, stats, confidence, asin, reviews, real_meta)
 
 
 def _assemble_result(
@@ -171,6 +186,7 @@ def _assemble_result(
     stats: StatsResult,
     confidence: float,
     asin: str,
+    raw_reviews: list[Review],
     real_meta: dict | None = None,
 ) -> AnalysisResult:
     """Map LLM structured output + computed stats + confidence into a
@@ -221,4 +237,7 @@ def _assemble_result(
         negative_summary=llm_output.get("negative_summary", ""),
         total_reviews_analyzed=stats.total_reviews,
         avg_rating=round(stats.avg_rating, 2),
+        # Keep raw text payload for observability and debugging.
+        raw_reviews=[review.text for review in raw_reviews],
+        raw_reviews_count=len(raw_reviews),
     )

@@ -57,6 +57,8 @@ class AnalysisResult:
         negative_summary: Text summary of common issues from low-star reviews.
         total_reviews_analyzed: Number of reviews actually analyzed by the pipeline. Unit: reviews. Must be >= 0.
         avg_rating: Mean rating across analyzed reviews on a 1.0-5.0 scale.
+        raw_reviews: Raw review text payload captured for debugging/inspection.
+        raw_reviews_count: Count of raw reviews captured before cleaning.
     """
 
     product_title: str
@@ -78,3 +80,5 @@ class AnalysisResult:
 
     total_reviews_analyzed: int = 0
     avg_rating: float = 0.0
+    raw_reviews: list[str] = field(default_factory=list)
+    raw_reviews_count: int = 0

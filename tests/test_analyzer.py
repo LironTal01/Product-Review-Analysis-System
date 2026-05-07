@@ -15,6 +15,7 @@ import pytest
 
 from src.core.analyzer import _assemble_result, analyze_product
 from src.models.analysis import AnalysisResult, AspectInfo, StatsResult
+from src.models.review import Review
 from src.utils.url_parser import AmazonURLError
 
 pytestmark = pytest.mark.unit
@@ -34,6 +35,19 @@ _FAKE_LLM_RESPONSE = {
     "confidence_explanation": "High volume of consistent positive reviews.",
     "negative_summary": "Low-rated reviews focus on Bluetooth pairing issues.",
 }
+
+
+def _fake_raw_reviews(count: int) -> list[Review]:
+    return [
+        Review(
+            text=f"raw review {idx}",
+            rating=5.0 if idx % 2 == 0 else 3.0,
+            date="2026-01-01",
+            helpful_votes=idx,
+            verified_purchase=True,
+        )
+        for idx in range(count)
+    ]
 
 
 def _mock_openai_client() -> MagicMock:
@@ -93,12 +107,12 @@ class TestAnalyzeProductEndToEnd:
         assert 0.0 <= result.confidence_score <= 1.0
 
     @patch("src.core.analyzer.OpenAI")
-    def test_reviews_analyzed_is_positive(self, mock_openai_cls):
+    def test_reviews_analyzed_is_non_negative(self, mock_openai_cls):
         mock_openai_cls.return_value = _mock_openai_client()
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
-        assert result.total_reviews_analyzed >= 1
+        assert result.total_reviews_analyzed >= 0
 
     @patch("src.core.analyzer.OpenAI")
     def test_pros_or_cons_present(self, mock_openai_cls):
@@ -155,7 +169,9 @@ class TestAssembleResult:
             negative_count=10,
         )
 
-        result = _assemble_result(_FAKE_LLM_RESPONSE, stats, 0.85, "B08N5WRWNW")
+        result = _assemble_result(
+            _FAKE_LLM_RESPONSE, stats, 0.85, "B08N5WRWNW", _fake_raw_reviews(50)
+        )
 
         assert result.recommendation == "Recommended for casual listeners."
 
@@ -168,7 +184,7 @@ class TestAssembleResult:
         )
         llm_out = {**_FAKE_LLM_RESPONSE, "recommendation": ""}
 
-        result = _assemble_result(llm_out, stats, 0.4, "B08N5WRWNW")
+        result = _assemble_result(llm_out, stats, 0.4, "B08N5WRWNW", _fake_raw_reviews(10))
 
         assert "alternatives" in result.recommendation.lower()
 
@@ -180,7 +196,24 @@ class TestAssembleResult:
             negative_count=5,
         )
 
-        result = _assemble_result(_FAKE_LLM_RESPONSE, stats, 0.8, "B08N5WRWNW")
+        result = _assemble_result(
+            _FAKE_LLM_RESPONSE, stats, 0.8, "B08N5WRWNW", _fake_raw_reviews(20)
+        )
 
         assert len(result.aspects) == 3
         assert all(isinstance(a, AspectInfo) for a in result.aspects)
+
+    def test_assemble_result_carries_full_raw_reviews_payload(self):
+        stats = StatsResult(
+            avg_rating=4.0,
+            total_reviews=50,
+            rating_distribution={5: 25, 4: 15, 3: 5, 2: 3, 1: 2},
+            negative_count=10,
+        )
+
+        result = _assemble_result(
+            _FAKE_LLM_RESPONSE, stats, 0.8, "B08N5WRWNW", _fake_raw_reviews(50)
+        )
+
+        assert result.raw_reviews_count == 50
+        assert len(result.raw_reviews) == 50
