@@ -1,1 +1,1 @@
-"""Analysis utilities (confidence scoring, sentiment, stats)."""
+"""Analysis utilities (confidence scoring, embeddings, sentiment, stats)."""
