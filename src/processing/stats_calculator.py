@@ -31,7 +31,7 @@ def calculate_stats(reviews: Sequence[Review]) -> StatsResult:
         return StatsResult(
             avg_rating=0.0,
             total_reviews=0,
-            rating_distribution={s: 0 for s in range(1, 6)},
+            rating_distribution=dict.fromkeys(range(1, 6), 0),
             negative_count=0,
         )
 
