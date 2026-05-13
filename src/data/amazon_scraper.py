@@ -28,7 +28,7 @@ _PAGE_DELAY = 1.5
 _REQUEST_TIMEOUT_SECONDS = 60
 _META_FETCH_RETRIES = 2
 _MAX_REVIEW_PAGES = 20
-_MAX_CONSECUTIVE_STALE_PAGES = 4
+_MAX_CONSECUTIVE_STALE_PAGES = 2
 _ROUTE_PROFILES: list[tuple[str, str | None]] = [
     ("helpful", None),
     ("recent", None),
@@ -349,7 +349,8 @@ def scrape_reviews_with_meta(
     seen_keys: set[str] = set()
     aggregate_meta: dict[str, str] = {}
     pages_needed = (max_reviews + _REVIEWS_PER_PAGE - 1) // _REVIEWS_PER_PAGE
-    pages_to_try = min(_MAX_REVIEW_PAGES, pages_needed + 6)
+    # Keep extra headroom for sparse pages, but avoid very long requests in production.
+    pages_to_try = min(_MAX_REVIEW_PAGES, pages_needed + 3)
     consecutive_empty_pages = 0
 
     for page_num in range(1, pages_to_try + 1):
@@ -361,7 +362,9 @@ def scrape_reviews_with_meta(
 
         # Route priority: helpful -> recent -> star filters.
         # Use every profile on each page so stale pagination on one sort still yields rows from others.
-        route_profiles = _ROUTE_PROFILES
+        # Page 1 probes all route profiles to quickly discover a rich path.
+        # Later pages use only the two most stable routes to bound request time.
+        route_profiles = _ROUTE_PROFILES if page_num == 1 else _ROUTE_PROFILES[:2]
         for sort_by, filter_by_star in route_profiles:
             for page_url in _build_review_page_urls(asin, page_num, sort_by, filter_by_star):
                 html = _fetch_page(page_url, api_key, country_code="us")
