@@ -1,21 +1,26 @@
 /* PRAS — minimal, product-style layout. No framework. */
 
 :root {
-  --bg: #f5f6f8;
+  --bg: #f3f6fb;
+  --bg-soft: #edf3ff;
   --surface: #ffffff;
-  --border: #e3e6ea;
-  --text: #1a1d21;
-  --muted: #5b6470;
-  --accent: #0066c0;
-  --accent-hover: #004f99;
+  --surface-alt: #f8fbff;
+  --border: #dde5f1;
+  --text: #172130;
+  --muted: #5d6b80;
+  --accent: #2e6df6;
+  --accent-hover: #1f5ce0;
+  --accent-soft: #e9f0ff;
   --positive: #1f8a3b;
   --negative: #c4392c;
   --mixed: #b07b00;
   --warning-bg: #fff4e5;
   --error-bg: #fdecea;
   --error-text: #9b1c12;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --radius: 8px;
+  --shadow-sm: 0 4px 10px rgba(16, 35, 72, 0.06);
+  --shadow-md: 0 10px 28px rgba(20, 42, 88, 0.1);
+  --shadow-lg: 0 18px 44px rgba(18, 43, 94, 0.14);
+  --radius: 12px;
 }
 
 * {
@@ -26,12 +31,12 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background: radial-gradient(circle at top, var(--bg-soft), var(--bg) 34%);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.58;
 }
 
 .container {
@@ -42,32 +47,40 @@ body {
 
 /* Header */
 .site-header {
-  background: var(--surface);
+  background: linear-gradient(135deg, #ffffff 0%, #f6f9ff 100%);
   border-bottom: 1px solid var(--border);
-  padding: 28px 0 24px;
-  margin-bottom: 28px;
+  padding: 34px 0 28px;
+  margin-bottom: 30px;
+  box-shadow: var(--shadow-sm);
 }
 
 .site-header h1 {
   margin: 0 0 4px;
-  font-size: 26px;
-  font-weight: 600;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .site-header .subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* Cards */
 .card {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
   padding: 20px 22px;
   margin-bottom: 20px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
 }
 
 .card h2,
@@ -110,11 +123,11 @@ select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 15px;
   background: #fff;
   color: var(--text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 input[type="url"]:focus,
@@ -122,7 +135,8 @@ input[type="search"]:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 102, 192, 0.15);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(46, 109, 246, 0.14);
 }
 
 input[type="url"].invalid {
@@ -163,23 +177,28 @@ input[type="range"] {
 }
 
 button {
-  background: var(--accent);
+  background: linear-gradient(135deg, #3a79ff 0%, #2d63df 100%);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   padding: 11px 22px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  box-shadow: 0 10px 20px rgba(46, 109, 246, 0.24);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-  background: var(--accent-hover);
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 14px 24px rgba(46, 109, 246, 0.28);
 }
 
 button:disabled {
-  background: #b3c2d1;
+  background: #aebcd1;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -232,17 +251,18 @@ button:disabled {
   border-radius: 999px;
   font-size: 13px;
   color: var(--text);
-  background: #fafbfc;
+  background: #f7faff;
   border: 1px solid var(--border);
   cursor: pointer;
   font-family: inherit;
   max-width: 100%;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .url-chip:hover {
-  background: #eaf3fb;
-  border-color: #b9d6ee;
+  transform: translateY(-1px);
+  background: var(--accent-soft);
+  border-color: #c3d7ff;
   color: var(--accent);
 }
 
@@ -255,7 +275,7 @@ button:disabled {
 
 /* Loading + skeleton */
 .loading {
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px 22px;
@@ -379,7 +399,7 @@ button:disabled {
   background: var(--error-bg);
   color: var(--error-text);
   border: 1px solid #f5c6c2;
-  border-radius: var(--radius);
+  border-radius: 10px;
   padding: 14px 18px;
   margin-bottom: 20px;
   font-size: 14px;
@@ -401,8 +421,8 @@ button:disabled {
   width: 90px;
   height: 90px;
   object-fit: contain;
-  border-radius: 6px;
-  background: #fafbfc;
+  border-radius: 10px;
+  background: #f2f7ff;
   border: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -455,7 +475,7 @@ button:disabled {
 .confidence-meter {
   width: 100%;
   height: 8px;
-  background: #e8ecf0;
+  background: #e4ebf7;
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -463,7 +483,7 @@ button:disabled {
 
 .confidence-fill {
   height: 100%;
-  background: var(--accent);
+  background: linear-gradient(90deg, #3b7bff, #1f5ce0);
   width: 0%;
   border-radius: 999px;
   transition: width 0.5s ease;
@@ -606,7 +626,7 @@ button:disabled {
   border-radius: 999px;
   font-size: 13px;
   border: 1px solid var(--border);
-  background: #fafbfc;
+  background: #f8fbff;
 }
 
 .aspect-pill.positive {
@@ -647,7 +667,7 @@ button:disabled {
   margin-top: 40px;
   padding: 18px 0 24px;
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fd 100%);
 }
 
 .site-footer p {
