@@ -243,6 +243,10 @@
     const confidence = clamp01(Number(data.confidence_score) || 0);
     const confidencePct = Math.round(confidence * 100);
     confidenceFill.style.width = confidencePct + "%";
+    confidenceFill.classList.remove("low", "medium", "high");
+    if (confidencePct < 40) confidenceFill.classList.add("low");
+    else if (confidencePct < 70) confidenceFill.classList.add("medium");
+    else confidenceFill.classList.add("high");
     confidenceScore.textContent = confidencePct + "%";
     confidenceExplanation.textContent = data.confidence_explanation || "";
 
