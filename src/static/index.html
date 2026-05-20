@@ -153,26 +153,6 @@
         <p id="negative-summary" class="muted"></p>
       </article>
 
-      <article class="card">
-        <h3>Topics mentioned</h3>
-        <div class="aspect-controls">
-          <input
-            type="search"
-            id="aspect-filter"
-            placeholder="Filter topics (e.g. battery, shipping)…"
-            autocomplete="off"
-          />
-          <label class="select-label">
-            Sort:
-            <select id="aspect-sort">
-              <option value="count">Most mentioned</option>
-              <option value="sentiment">By sentiment</option>
-              <option value="alpha">A–Z</option>
-            </select>
-          </label>
-        </div>
-        <ul id="aspects-list" class="aspects-list"></ul>
-      </article>
     </section>
   </main>
 
@@ -182,6 +162,6 @@
     </div>
   </footer>
 
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v=2" defer></script>
 </body>
 </html>

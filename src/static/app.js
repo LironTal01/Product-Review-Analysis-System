@@ -36,9 +36,6 @@
   const prosList = document.getElementById("pros-list");
   const consList = document.getElementById("cons-list");
   const negativeSummary = document.getElementById("negative-summary");
-  const aspectsList = document.getElementById("aspects-list");
-  const aspectFilter = document.getElementById("aspect-filter");
-  const aspectSort = document.getElementById("aspect-sort");
 
   // ---- Constants ----
   const RECENT_KEY = "pras.recentSearches.v1";
@@ -63,8 +60,6 @@
     },
   ];
 
-  // Holds the most recent aspects array so the filter / sort can re-render without refetching.
-  let currentAspects = [];
 
   // ---- Init ----
   renderExamples();
@@ -93,14 +88,6 @@
     } else {
       clearUrlError();
     }
-  });
-
-  aspectFilter.addEventListener("input", () => {
-    renderAspects(currentAspects, aspectFilter.value, aspectSort.value);
-  });
-
-  aspectSort.addEventListener("change", () => {
-    renderAspects(currentAspects, aspectFilter.value, aspectSort.value);
   });
 
   recentClearBtn.addEventListener("click", () => {
@@ -265,9 +252,6 @@
     negativeSummary.textContent =
       data.negative_summary || "No notable complaints found.";
 
-    currentAspects = Array.isArray(data.aspects) ? data.aspects : [];
-    aspectFilter.value = "";
-    renderAspects(currentAspects, "", aspectSort.value);
   }
 
   function renderList(ul, items, emptyMessage) {
@@ -284,71 +268,6 @@
       li.textContent = String(item);
       ul.appendChild(li);
     }
-  }
-
-  function renderAspects(aspects, filterText, sortMode) {
-    aspectsList.innerHTML = "";
-    const needle = (filterText || "").trim().toLowerCase();
-    let working = needle
-      ? aspects.filter((a) => (a.name || "").toLowerCase().includes(needle))
-      : aspects.slice();
-
-    working = sortAspects(working, sortMode);
-
-    if (working.length === 0) {
-      const li = document.createElement("li");
-      li.className = "empty-state";
-      li.textContent =
-        aspects.length === 0
-          ? "No aspects extracted."
-          : "No aspects match your filter.";
-      aspectsList.appendChild(li);
-      return;
-    }
-
-    for (const aspect of working) {
-      const li = document.createElement("li");
-      const sentiment = (aspect.sentiment || "mixed").toLowerCase();
-      const validSentiment = ["positive", "negative", "mixed"].includes(sentiment)
-        ? sentiment
-        : "mixed";
-      li.className = `aspect-pill ${validSentiment}`;
-
-      const name = document.createElement("span");
-      name.textContent = aspect.name || "—";
-      li.appendChild(name);
-
-      const count = Number(aspect.mention_count);
-      if (count > 0) {
-        const badge = document.createElement("span");
-        badge.className = "count";
-        badge.textContent = count;
-        li.appendChild(badge);
-      }
-
-      aspectsList.appendChild(li);
-    }
-  }
-
-  function sortAspects(aspects, mode) {
-    const sentimentOrder = { positive: 0, mixed: 1, negative: 2 };
-    if (mode === "alpha") {
-      return aspects.sort((a, b) =>
-        (a.name || "").localeCompare(b.name || ""),
-      );
-    }
-    if (mode === "sentiment") {
-      return aspects.sort((a, b) => {
-        const sa = sentimentOrder[(a.sentiment || "mixed").toLowerCase()] ?? 1;
-        const sb = sentimentOrder[(b.sentiment || "mixed").toLowerCase()] ?? 1;
-        if (sa !== sb) return sa - sb;
-        return (Number(b.mention_count) || 0) - (Number(a.mention_count) || 0);
-      });
-    }
-    // default: count desc
-    return aspects.sort(
-      (a, b) => (Number(b.mention_count) || 0) - (Number(a.mention_count) || 0),
-    );
   }
 
   // ---- Examples + recent ----
