@@ -17,7 +17,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.core.analyzer import analyze_product
-from src.db.postgres import get_analysis, init_db, save_analysis
 from src.db.redis_cache import get_cached, set_cached
 from src.utils.logger import logger
 from src.utils.url_parser import (
@@ -44,7 +43,6 @@ async def lifespan(_: FastAPI):
     logger.debug(
         "PRAS API starting up (scraper key: %s)", "SET" if settings.scraper_api_key else "NOT SET"
     )
-    init_db()
     yield
     logger.debug("PRAS API shutting down")
 
@@ -134,6 +132,5 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
     payload = dataclasses.asdict(result)
 
     # Cache and persist the result for future requests
-    save_analysis(asin, request.max_reviews, payload)
     set_cached(asin, request.max_reviews, payload)
     return JSONResponse(payload)
