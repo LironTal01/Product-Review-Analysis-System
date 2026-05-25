@@ -18,14 +18,9 @@ _NEGATIVE_CEILING = 3  # ratings 1-3 count as negative
 
 
 def calculate_stats(reviews: Sequence[Review]) -> StatsResult:
-    """Aggregate a batch of reviews into a StatsResult.
-
-    Args:
-        reviews: Sequence of Review objects (may be empty).
-
-    Returns:
-        StatsResult with avg_rating, total_reviews, rating_distribution,
-        and negative_count populated.  Empty input yields all-zero fields.
+    """
+    This function will calculate the stats for the reviews.
+    Finally, it will return the stats.
     """
     if not reviews:
         return StatsResult(

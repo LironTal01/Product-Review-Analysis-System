@@ -10,11 +10,9 @@ import random
 
 from src.models.review import Review
 
-# ── min / max limits for the max_reviews parameter ──────────────────────
 _MIN_REVIEWS = 25
 _MAX_REVIEWS = 250
 
-# ── per-ASIN review templates ───────────────────────────────────────────
 # Each tuple: (text, rating, date, helpful_votes, verified_purchase)
 
 _HEADPHONES_ASIN = "B08N5WRWNW"

@@ -14,7 +14,6 @@ from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 
-from src.data.temp_cache import load_product_meta, save_product_meta
 from src.db.redis_cache import get_cached_raw_reviews, set_cached_raw_reviews
 from src.models.review import Review
 from src.utils.config import get_settings
@@ -23,12 +22,12 @@ from src.utils.logger import setup_logger
 logger = setup_logger("pras.scraper")
 
 _SCRAPER_API_URL = "https://api.scraperapi.com"
-_REVIEWS_PER_PAGE = 10
-_PAGE_DELAY = 1.5
+_REVIEWS_PER_PAGE = 15
+_PAGE_DELAY = 0.5
 _REQUEST_TIMEOUT_SECONDS = 60
-_META_FETCH_RETRIES = 2
-_MAX_REVIEW_PAGES = 20
-_MAX_CONSECUTIVE_STALE_PAGES = 2
+_META_FETCH_RETRIES = 3
+_MAX_REVIEW_PAGES = 25
+_MAX_CONSECUTIVE_STALE_PAGES = 3
 _ROUTE_PROFILES: list[tuple[str, str | None]] = [
     ("helpful", None),
     ("recent", None),
@@ -62,7 +61,7 @@ def _fetch_page(url: str, api_key: str, country_code: str | None = None) -> str 
             proxies={"http": None, "https": None},
         )
         resp.raise_for_status()
-        logger.info("ScraperAPI returned %d bytes", len(resp.text))
+        logger.debug("ScraperAPI returned %d bytes", len(resp.text))
         lower = resp.text.lower()
         if "sorry, we just need to make sure you're not a robot" in lower:
             logger.warning("Amazon anti-bot page returned for url=%s", url)
@@ -176,7 +175,7 @@ def _parse_reviews_from_html(html: str) -> list[Review]:
     reviews: list[Review] = []
 
     containers = soup.select("div[data-hook='review'], div[id^='customer_review-']")
-    logger.info("Found %d review containers in HTML", len(containers))
+    logger.debug("Found %d review containers in HTML", len(containers))
 
     for container in containers:
         text = _extract_review_text(container)
@@ -264,10 +263,6 @@ def _build_review_page_urls(
 
 def scrape_product_meta(asin: str) -> dict[str, str]:
     """Scrape product title/image/price/rating/count from product page."""
-    cached = load_product_meta(asin)
-    if cached is not None:
-        return cached
-
     api_key = _get_api_key()
     if not api_key:
         return {}
@@ -318,20 +313,17 @@ def scrape_product_meta(asin: str) -> dict[str, str]:
                 meta["total_review_count"] = str(parsed_count)
 
     if "price" in meta:
-        logger.info("Product price extracted: %s", meta["price"])
+        logger.debug("Product price extracted: %s", meta["price"])
     if "amazon_rating" in meta:
-        logger.info("Amazon rating extracted: %s", meta["amazon_rating"])
+        logger.debug("Amazon rating extracted: %s", meta["amazon_rating"])
     if "total_review_count" in meta:
-        logger.info("Amazon review count extracted: %s", meta["total_review_count"])
-
-    save_product_meta(asin, meta)
-    logger.info("Product meta: %s", meta.get("title", "no title"))
+        logger.debug("Amazon review count extracted: %s", meta["total_review_count"])
+    logger.debug("Product meta: %s", meta.get("title", "no title"))
     return meta
 
 
 def scrape_reviews_with_meta(
-    asin: str,
-    max_reviews: int = 100,
+    asin: str, max_reviews: int = 250
 ) -> tuple[list[Review], dict[str, str]]:
     """Scrape unique reviews and return optional aggregate metadata."""
     api_key = _get_api_key()
@@ -354,7 +346,7 @@ def scrape_reviews_with_meta(
     consecutive_empty_pages = 0
 
     for page_num in range(1, pages_to_try + 1):
-        logger.info("Scraping page %d for ASIN %s", page_num, asin)
+        logger.debug("Scraping page %d for ASIN %s", page_num, asin)
         page_reviews: list[Review] = []
         page_meta: dict[str, str] = {}
         best_new_unique = -1
@@ -377,7 +369,7 @@ def scrape_reviews_with_meta(
 
                 candidate_meta = _extract_review_page_meta(html)
                 new_unique = _count_new_unique(candidate_reviews, seen_keys)
-                logger.info(
+                logger.debug(
                     "Candidate page parsed: route=%s/%s url=%s reviews=%d new_unique=%d",
                     sort_by,
                     filter_by_star or "all",
@@ -400,7 +392,7 @@ def scrape_reviews_with_meta(
         if page_num == 1 and page_meta:
             aggregate_meta.update(page_meta)
 
-        logger.info(
+        logger.debug(
             "Selected page %d candidate: reviews=%d",
             page_num,
             best_reviews_count,
@@ -408,13 +400,13 @@ def scrape_reviews_with_meta(
 
         if not page_reviews:
             consecutive_empty_pages += 1
-            logger.info(
+            logger.debug(
                 "No reviews on page %d (consecutive empty pages: %d)",
                 page_num,
                 consecutive_empty_pages,
             )
             if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
-                logger.info("Stopping after repeated empty pages")
+                logger.debug("Stopping after repeated empty pages")
                 break
             continue
 
@@ -427,7 +419,7 @@ def scrape_reviews_with_meta(
             unique_reviews.append(review)
             new_on_page += 1
 
-        logger.info(
+        logger.debug(
             "Total unique reviews: %d after page %d (new on page: %d)",
             len(unique_reviews),
             page_num,
@@ -437,13 +429,13 @@ def scrape_reviews_with_meta(
             consecutive_empty_pages = 0
         if new_on_page == 0:
             consecutive_empty_pages += 1
-            logger.info(
+            logger.debug(
                 "Page %d added no new unique reviews (consecutive empty pages: %d)",
                 page_num,
                 consecutive_empty_pages,
             )
             if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
-                logger.info("Stopping after repeated duplicate-only pages")
+                logger.debug("Stopping after repeated duplicate-only pages")
                 break
             continue
 

@@ -1,8 +1,8 @@
 """Redis cache helpers for analysis and raw review payloads.
 
 This module provides two read-through caches:
-1. ``analysis:v2:{asin}:{max_reviews}`` for final API payloads.
-2. ``raw_reviews:v2:{asin}:{max_reviews}`` for scraped raw review records.
+1. ``analysis:{asin}:{max_reviews}`` for final API payloads.
+2. ``raw_reviews:{asin}:{max_reviews}`` for scraped raw review records.
 """
 
 from __future__ import annotations
@@ -17,18 +17,17 @@ from src.models.review import Review
 from src.utils.config import get_settings
 from src.utils.logger import logger
 
-TTL_SECONDS = 172_800  # 48 hours
+TTL_SECONDS = 86400  # 24 hours
 
 
 def _key(asin: str, max_reviews: int) -> str:
     """Build Redis key for final analysis payload."""
-    return f"analysis:v2:{asin}:{max_reviews}"
+    return f"analysis:{asin}:{max_reviews}"
 
 
 def _raw_key(asin: str, max_reviews: int) -> str:
     """Build Redis key for raw review payload."""
-    # Bump when scrape shape/dedupe changes so stale shorter payloads are not reused.
-    return f"raw_reviews:v2:{asin}:{max_reviews}"
+    return f"raw_reviews:{asin}:{max_reviews}"
 
 
 def _client() -> redis.Redis | None:
@@ -91,7 +90,7 @@ def set_cached(asin: str, max_reviews: int, result: dict[str, Any]) -> bool:
         return False
     try:
         client.set(_key(asin, max_reviews), json.dumps(result), ex=TTL_SECONDS)
-        logger.info("Cached analysis: asin=%s max_reviews=%d", asin, max_reviews)
+        logger.debug("Cached analysis: asin=%s max_reviews=%d", asin, max_reviews)
         return True
     except (redis.RedisError, TypeError, ValueError) as exc:
         logger.warning("set_cached failed for asin=%s: %s", asin, exc)
@@ -157,7 +156,7 @@ def get_cached_raw_reviews(
         if isinstance(meta_raw, dict):
             meta = {str(k): str(v) for k, v in meta_raw.items()}
 
-        logger.info("Redis raw cache hit: asin=%s max_reviews=%d", asin, max_reviews)
+        logger.debug("Redis raw cache hit: asin=%s max_reviews=%d", asin, max_reviews)
         return reviews[:max_reviews], meta
     except (redis.RedisError, TypeError, ValueError) as exc:
         logger.warning("get_cached_raw_reviews failed for asin=%s: %s", asin, exc)
@@ -201,7 +200,7 @@ def set_cached_raw_reviews(
             "meta": meta or {},
         }
         client.set(_raw_key(asin, max_reviews), json.dumps(payload), ex=TTL_SECONDS)
-        logger.info("Cached raw reviews in Redis: asin=%s max_reviews=%d", asin, max_reviews)
+        logger.debug("Cached raw reviews in Redis: asin=%s max_reviews=%d", asin, max_reviews)
         return True
     except (redis.RedisError, TypeError, ValueError) as exc:
         logger.warning("set_cached_raw_reviews failed for asin=%s: %s", asin, exc)

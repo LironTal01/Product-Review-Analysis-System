@@ -8,7 +8,6 @@ import numpy as np
 from openai import OpenAI
 from sklearn.metrics.pairwise import cosine_similarity
 
-from src.data.temp_cache import load_embeddings, save_embeddings
 from src.models.review import Review
 from src.utils.logger import setup_logger
 
@@ -17,26 +16,28 @@ logger = setup_logger("pras.embeddings")
 _MODEL = "text-embedding-3-small"
 
 # How many texts to send in one API call (avoids token limit issues)
-_BATCH_SIZE = 100
+BATCH_SIZE = 150
 
 
 def embed_reviews(reviews: list[Review], client: OpenAI) -> np.ndarray:
-    """Send review texts to OpenAI and get back embedding vectors."""
+    """Send review texts to OpenAI and get back embedding vectors.
+    This function will send the review texts to the OpenAI API to get the embeddings.
+    Finally, it will return the embeddings.
+    """
     if not reviews:
         raise ValueError("Cannot embed an empty review list.")
 
     # Pull out just the text from each review
     texts = [r.text for r in reviews]
-    cached = load_embeddings(_MODEL, texts)
-    if cached is not None:
-        return cached
+    # We rely on Redis caching at the request/result level, so we intentionally don't persist
+    # embeddings here (keeps Redis small and avoids local temp caches).
 
     all_embeddings: list[list[float]] = []
 
     # Send texts in batches so we don't hit API limits
-    for start in range(0, len(texts), _BATCH_SIZE):
-        batch = texts[start : start + _BATCH_SIZE]
-        logger.info(
+    for start in range(0, len(texts), BATCH_SIZE):
+        batch = texts[start : start + BATCH_SIZE]
+        logger.debug(
             "Embedding batch %d-%d of %d reviews", start, start + len(batch) - 1, len(texts)
         )
 
@@ -49,15 +50,10 @@ def embed_reviews(reviews: list[Review], client: OpenAI) -> np.ndarray:
 
     # Convert list of lists into a 2D numpy array
     result = np.array(all_embeddings, dtype=np.float32)
-    save_embeddings(_MODEL, texts, result)
     return result
 
 
-def select_top_k(
-    reviews: list[Review],
-    embeddings: np.ndarray,
-    k: int = 20,
-) -> list[Review]:
+def select_top_k(reviews: list[Review], embeddings: np.ndarray, k: int = 20) -> list[Review]:
     """Pick the k most representative reviews based on cosine similarity."""
     if len(reviews) == 0:
         return []
@@ -74,7 +70,7 @@ def select_top_k(
     # Sort by similarity descending and take the top k indices
     top_indices = np.argsort(similarities)[::-1][:k]
 
-    logger.info(
+    logger.debug(
         "Selected top-%d reviews out of %d (similarity range %.4f - %.4f)",
         k,
         len(reviews),

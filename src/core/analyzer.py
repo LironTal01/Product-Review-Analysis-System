@@ -100,16 +100,14 @@ def _fallback_llm_output(stats: StatsResult) -> dict:
     }
 
 
-def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
+def analyze_product(url: str, max_reviews: int = 250) -> AnalysisResult:
     """Run the full analysis pipeline for an Amazon product URL.
-
-    Args:
-        url: Amazon product page URL containing a valid ASIN.
-        max_reviews: how many reviews to analyze (clamped 25-250).
-
-    Returns:
-        Fully populated AnalysisResult ready for JSON serialization.
+    This function will scrape the product page provided by the user, clean the reviews, compute the stats,
+    calculate the confidence score, embed the reviews, select the top-K reviews for the LLM analysis,
+    and then send the top-K reviews and stats to the LLM to get the analysis.
+    Finally, it will assemble the result and return it.
     """
+
     # Keep request size within API/UI contract bounds.
     max_reviews = max(25, min(max_reviews, 250))
 
@@ -122,7 +120,7 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
     # 2. Try to scrape real reviews from Amazon first
     reviews, review_page_meta = scrape_reviews_with_meta(asin, max_reviews)
 
-    if len(reviews) >= 5:
+    if len(reviews) >= 10:
         # Got enough real reviews, use them
         logger.info("Using %d REAL reviews from Amazon", len(reviews))
         use_real = True
@@ -158,7 +156,7 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         embeddings = embed_reviews(cleaned, client)
-        top_k = select_top_k(cleaned, embeddings, k=_TOP_K)
+        top_k = select_top_k(cleaned, embeddings, k=int(len(cleaned) * 0.4))
         logger.info("Selected %d representative reviews for LLM", len(top_k))
         llm_output = analyze_with_llm(top_k, stats, client)
     except Exception as exc:
@@ -175,7 +173,7 @@ def analyze_product(url: str, max_reviews: int = 200) -> AnalysisResult:
             for key in ("total_review_count",):
                 if key not in real_meta and key in review_page_meta:
                     real_meta[key] = review_page_meta[key]
-        logger.info("Scraped product meta: %s", list(real_meta.keys()))
+        logger.debug("Scraped product meta: %s", list(real_meta.keys()))
 
     # 9. Assemble final result
     return _assemble_result(llm_output, stats, confidence, asin, reviews, real_meta)
@@ -192,6 +190,7 @@ def _assemble_result(
     """Map LLM structured output + computed stats + confidence into a
     complete AnalysisResult with safe fallbacks for missing fields.
     """
+
     # Use real product metadata if available, otherwise fall back to mock catalog
     meta = real_meta if real_meta else PRODUCT_META.get(asin, {})
 

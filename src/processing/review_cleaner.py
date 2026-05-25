@@ -1,5 +1,4 @@
 """Review cleaning helpers.
-
 Note: This file is intentionally a minimal stub for now.
 It exists so tests can run (red) without import errors.
 """

@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.core.analyzer import analyze_product
-from src.db.postgres import get_analysis, init_db, save_analysis
+from src.db.postgres import init_db, save_analysis
 from src.db.redis_cache import get_cached, set_cached
 from src.utils.logger import logger
 from src.utils.url_parser import (
@@ -41,12 +41,12 @@ async def lifespan(_: FastAPI):
     get_settings.cache_clear()
 
     settings = get_settings()
-    logger.info(
+    logger.debug(
         "PRAS API starting up (scraper key: %s)", "SET" if settings.scraper_api_key else "NOT SET"
     )
     init_db()
     yield
-    logger.info("PRAS API shutting down")
+    logger.debug("PRAS API shutting down")
 
 
 app = FastAPI(
@@ -95,13 +95,10 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
     Lookup order:
     1. Validate URL → ``asin``.
     2. Redis cache (24h TTL) — fastest path, returns immediately on hit.
-    3. Postgres (durable storage) — if found, refresh the Redis cache and
-       return.
-    4. Otherwise compute, persist/cache the result, and return it.
+    3. Otherwise compute, persist/cache the result, and return it.
 
-    Both stores are **optional**: when ``REDIS_URL`` / ``DATABASE_URL``
-    are empty or unreachable, the affected layers degrade silently and the
-    endpoint still returns a fresh payload.
+    This function will validate the URL, check the Redis cache, and if not found, it will compute the analysis,
+    persist/cache the result, and return it.
     """
     try:
         asin = extract_asin(request.amazon_url)
@@ -109,33 +106,22 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
         logger.warning("Rejected analyze request: %s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    logger.info("Analyze request accepted: asin=%s max_reviews=%d", asin, request.max_reviews)
+    logger.debug("Analyze request accepted: asin=%s max_reviews=%d", asin, request.max_reviews)
 
+    # Check the Redis cache
     cached = get_cached(asin, request.max_reviews)
+    # If the cache is not empty, return the cached result
     if cached is not None:
         # Do not serve stale "empty scrape" cache entries.
         if _is_explicit_empty_raw_payload(cached):
-            logger.info(
+            logger.debug(
                 "Ignoring empty Redis cache entry: asin=%s max_reviews=%d",
                 asin,
                 request.max_reviews,
             )
         else:
-            logger.info("Redis hit: asin=%s max_reviews=%d", asin, request.max_reviews)
+            logger.debug("Redis hit: asin=%s max_reviews=%d", asin, request.max_reviews)
             return JSONResponse(cached)
-
-    stored = get_analysis(asin, request.max_reviews)
-    if stored is not None:
-        if _is_explicit_empty_raw_payload(stored):
-            logger.info(
-                "Ignoring empty Postgres entry and recomputing: asin=%s max_reviews=%d",
-                asin,
-                request.max_reviews,
-            )
-        else:
-            logger.info("Postgres hit: asin=%s max_reviews=%d", asin, request.max_reviews)
-            set_cached(asin, request.max_reviews, stored)
-            return JSONResponse(stored)
 
     # Run the real analysis pipeline (embeddings + LLM)
     try:
@@ -148,7 +134,6 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
     payload = dataclasses.asdict(result)
 
     # Cache and persist the result for future requests
-    # Persist and cache computed payload.
     save_analysis(asin, request.max_reviews, payload)
     set_cached(asin, request.max_reviews, payload)
     return JSONResponse(payload)

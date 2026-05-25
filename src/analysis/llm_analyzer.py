@@ -133,21 +133,10 @@ def _apply_defaults(raw: dict) -> dict:
     return raw
 
 
-def analyze_with_llm(
-    top_k_reviews: list[Review],
-    stats: StatsResult,
-    client: OpenAI,
-) -> dict:
+def analyze_with_llm(top_k_reviews: list[Review], stats: StatsResult, client: OpenAI) -> dict:
     """Send top-K reviews and stats to GPT and get structured analysis back.
-
-    Args:
-        top_k_reviews: the most representative reviews (from embeddings step).
-        stats: computed stats for the full review set.
-        client: authenticated OpenAI client.
-
-    Returns:
-        dict with keys: summary_text, pros, cons, aspects, recommendation,
-        confidence_explanation, negative_summary.
+    This function will send the top-K reviews and stats to the LLM to get the analysis.
+    Finally, it will return the analysis.
     """
     logger.info("Sending %d reviews to LLM for analysis", len(top_k_reviews))
 
@@ -156,7 +145,7 @@ def analyze_with_llm(
     user_prompt = _build_user_prompt(top_k_reviews, stats)
     model = _resolve_model_name()
 
-    # Use Responses API for GPT-5 models; retry if the model returns no text.
+    # Try to get the analysis from the LLM 3 times
     raw_text = ""
     for attempt in range(3):
         try:
@@ -192,7 +181,8 @@ def analyze_with_llm(
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
-        logger.error("LLM returned invalid JSON, using all defaults. Raw: %s", raw_text[:300])
+        logger.error("LLM returned invalid JSON, using all defaults.")
+        logger.debug("Raw LLM response (truncated): %s", raw_text[:300])
         parsed = {}
 
     # Make sure all required keys exist (fill defaults for missing ones)

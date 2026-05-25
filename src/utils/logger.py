@@ -4,13 +4,15 @@ Uses Python's built-in logging module as required by the course.
 """
 
 import logging
+import os
 import sys
+
+# Allow runtime override via LOG_LEVEL env var (e.g. LOG_LEVEL=DEBUG).
+_DEFAULT_LEVEL = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
 
 def setup_logger(
-    name: str = "pras",
-    level: int = logging.INFO,
-    log_file: str | None = None,
+    name: str = "pras", level: int = _DEFAULT_LEVEL, log_file: str | None = None
 ) -> logging.Logger:
     """Configure and return a logger instance.
 
@@ -30,8 +32,8 @@ def setup_logger(
         return logger
 
     formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        fmt="%(asctime)s | %(levelname)s | %(name)s:%(funcName)s:%(lineno)d | %(message)s",
+        datefmt="%H:%M:%S",
     )
 
     console_handler = logging.StreamHandler(sys.stdout)
