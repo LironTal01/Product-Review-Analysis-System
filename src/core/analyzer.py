@@ -24,8 +24,8 @@ from src.utils.url_parser import extract_asin
 
 logger = setup_logger("pras.analyzer")
 
-_TOP_K = 20
-
+_MIN_LLM_REVIEWS = 20
+_LLM_RATIO = 0.7
 
 def _as_float(value) -> float | None:
     try:
@@ -156,7 +156,9 @@ def analyze_product(url: str, max_reviews: int = 250) -> AnalysisResult:
     try:
         client = OpenAI(api_key=settings.openai_api_key)
         embeddings = embed_reviews(cleaned, client)
-        top_k = select_top_k(cleaned, embeddings, k=int(len(cleaned) * 0.4))
+        # Small batch → send all; large batch → send 70% of cleaned reviews.
+        k = max(_MIN_LLM_REVIEWS, int(len(cleaned) * _LLM_RATIO))
+        top_k = select_top_k(cleaned, embeddings, k=k)
         logger.info("Selected %d representative reviews for LLM", len(top_k))
         llm_output = analyze_with_llm(top_k, stats, client)
     except Exception as exc:

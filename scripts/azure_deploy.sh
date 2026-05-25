@@ -35,9 +35,10 @@ set -euo pipefail
 
 # -- Settings (override via env) -------------------------------------------
 RESOURCE_GROUP="${RESOURCE_GROUP:-pras-rg}"
-LOCATION="${LOCATION:-westeurope}"
+LOCATION="${LOCATION:-francecentral}"
 ACR_NAME="${ACR_NAME:-prasacr$RANDOM}"
 ENVIRONMENT="${ENVIRONMENT:-pras-env}"
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
 APP_NAME="${APP_NAME:-pras-api}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 IMAGE_NAME="pras-api:${IMAGE_TAG}"
@@ -109,7 +110,7 @@ ACR_PASSWORD="$(az acr credential show --name "${ACR_NAME}" --query passwords[0]
 
 ENV_VARS=(
   "APP_ENV=production"
-  "LOG_LEVEL=INFO"
+  "LOG_LEVEL=${LOG_LEVEL:-INFO}"
 )
 if [[ -n "${OPENAI_API_KEY:-}" ]]; then
   ENV_VARS+=("OPENAI_API_KEY=${OPENAI_API_KEY}")

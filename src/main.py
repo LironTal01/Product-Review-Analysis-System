@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.core.analyzer import analyze_product
-from src.db.postgres import init_db, save_analysis
+from src.db.postgres import get_analysis, init_db, save_analysis
 from src.db.redis_cache import get_cached, set_cached
 from src.utils.logger import logger
 from src.utils.url_parser import (
