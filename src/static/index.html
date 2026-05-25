@@ -40,7 +40,7 @@
 
         <div class="field">
           <label for="max-reviews">
-            Reviews to analyze:
+            Target reviews to analyze:
             <output id="max-reviews-value" for="max-reviews">100</output>
           </label>
           <input
@@ -55,6 +55,9 @@
           <div class="range-ticks" aria-hidden="true">
             <span>25</span><span>75</span><span>125</span><span>175</span><span>250</span>
           </div>
+          <p class="field-hint">
+            We’ll analyze up to this number, depending on how many unique reviews are retrieved for the product.
+          </p>
         </div>
 
         <button type="submit" id="analyze-btn">
@@ -66,7 +69,7 @@
 
     <section id="recent-section" class="card recent-section hidden" aria-labelledby="recent-title">
       <div class="recent-header">
-        <h3 id="recent-title">Recent searches</h3>
+        <h3 id="recent-title">Recent products</h3>
         <button type="button" id="recent-clear" class="link-btn">Clear</button>
       </div>
       <ul id="recent-list" class="chip-list"></ul>
@@ -114,30 +117,37 @@
         <div class="product-meta">
           <h2 id="product-title">Product</h2>
           <p class="price" id="product-price"></p>
-          <p class="rating-line">
-            <span id="amazon-rating"></span>
-            <span class="dot">·</span>
-            <span id="total-review-count"></span>
-          </p>
+          <div class="meta-rows">
+            <div class="meta-row" aria-label="Amazon rating and total reviews">
+              <span id="amazon-rating" class="chip chip-rating"></span>
+              <span id="total-review-count" class="chip"></span>
+            </div>
+            <div class="meta-row" aria-label="Analysis coverage">
+              <span id="analyzed-chip" class="chip chip-soft"></span>
+              <span id="requested-chip" class="chip chip-soft"></span>
+            </div>
+            <p id="access-note" class="note note-info hidden"></p>
+          </div>
         </div>
       </article>
 
       <article class="card">
-        <h3>What reviewers say</h3>
+        <h3>Review summary</h3>
         <p id="summary-text" class="lead"></p>
       </article>
 
       <article class="card recommendation-card">
-        <h3>Should you buy it?</h3>
+        <h3>Purchase recommendation</h3>
         <p id="recommendation" class="lead"></p>
         <div class="confidence">
           <div class="confidence-meter" aria-hidden="true">
             <div id="confidence-fill" class="confidence-fill"></div>
           </div>
           <p class="confidence-line">
+            <span class="confidence-label">Analysis confidence:</span>
             <strong id="confidence-score">0%</strong>
-            <span>confidence</span>
           </p>
+          <p id="confidence-basis" class="muted hidden"></p>
           <p id="confidence-explanation" class="muted"></p>
         </div>
       </article>
@@ -154,7 +164,7 @@
       </div>
 
       <article class="card">
-        <h3>Common complaints (1–3 stars)</h3>
+        <h3>Common issues in lower-rated reviews</h3>
         <p id="negative-summary" class="muted"></p>
       </article>
 

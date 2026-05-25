@@ -28,10 +28,14 @@
   const productPrice = document.getElementById("product-price");
   const amazonRating = document.getElementById("amazon-rating");
   const totalReviewCount = document.getElementById("total-review-count");
+  const analyzedChip = document.getElementById("analyzed-chip");
+  const requestedChip = document.getElementById("requested-chip");
+  const accessNote = document.getElementById("access-note");
   const summaryText = document.getElementById("summary-text");
   const recommendation = document.getElementById("recommendation");
   const confidenceFill = document.getElementById("confidence-fill");
   const confidenceScore = document.getElementById("confidence-score");
+  const confidenceBasis = document.getElementById("confidence-basis");
   const confidenceExplanation = document.getElementById("confidence-explanation");
   const prosList = document.getElementById("pros-list");
   const consList = document.getElementById("cons-list");
@@ -136,7 +140,7 @@
         return;
       }
 
-      renderResult(data);
+      renderResult(data, maxReviews);
       pushRecent(amazonUrl, data.product_title || "Product");
       renderRecent();
       resultsEl.classList.remove("hidden");
@@ -213,7 +217,7 @@
   }
 
   // ---- Rendering ----
-  function renderResult(data) {
+  function renderResult(data, requestedMaxReviews) {
     productTitle.textContent = data.product_title || "Product";
 
     if (data.product_image_url) {
@@ -227,18 +231,34 @@
     productPrice.textContent = data.product_price || "";
 
     const rating = Number(data.amazon_rating);
-    amazonRating.textContent =
-      rating > 0 ? `★ ${rating.toFixed(1)} avg` : "";
+    amazonRating.textContent = rating > 0 ? `★ ${rating.toFixed(1)} Amazon rating` : "";
+    amazonRating.classList.toggle("hidden", !(rating > 0));
 
     const reviewCount = Number(data.total_review_count);
     const analyzedCount = Number(data.total_reviews_analyzed || 0);
-    totalReviewCount.textContent =
-      reviewCount > 0
-        ? `${reviewCount.toLocaleString()} total reviews (${analyzedCount.toLocaleString()} analyzed)`
-        : `${analyzedCount.toLocaleString()} reviews analyzed`;
+    totalReviewCount.textContent = reviewCount > 0 ? `${reviewCount.toLocaleString()} reviews on Amazon` : "";
+    totalReviewCount.classList.toggle("hidden", !(reviewCount > 0));
+
+    const requested = Number(requestedMaxReviews || 0);
+    analyzedChip.textContent =
+      analyzedCount > 0
+        ? `Included: ${analyzedCount.toLocaleString()} unique reviews`
+        : "Included: 0 reviews";
+    requestedChip.textContent = requested > 0 ? `Requested: ${requested.toLocaleString()}` : "";
+    requestedChip.classList.toggle("hidden", !(requested > 0));
+
+    const shouldShowNote = requested > 0 && analyzedCount > 0 && analyzedCount < requested;
+    if (shouldShowNote) {
+      accessNote.textContent =
+        "Analysis uses the unique reviews available.";
+      accessNote.classList.remove("hidden");
+    } else {
+      accessNote.textContent = "";
+      accessNote.classList.add("hidden");
+    }
 
     summaryText.textContent = data.summary_text || "—";
-    recommendation.textContent = data.recommendation || "—";
+    recommendation.textContent = normalizeRecommendation(data.recommendation || "—");
 
     const confidence = clamp01(Number(data.confidence_score) || 0);
     const confidencePct = Math.round(confidence * 100);
@@ -248,6 +268,14 @@
     else if (confidencePct < 70) confidenceFill.classList.add("medium");
     else confidenceFill.classList.add("high");
     confidenceScore.textContent = confidencePct + "%";
+
+    if (analyzedCount > 0) {
+      confidenceBasis.textContent = `Based on ${analyzedCount.toLocaleString()} unique reviews retrieved for this request.`;
+      confidenceBasis.classList.remove("hidden");
+    } else {
+      confidenceBasis.textContent = "";
+      confidenceBasis.classList.add("hidden");
+    }
     confidenceExplanation.textContent = data.confidence_explanation || "";
 
     renderList(prosList, data.pros, "No pros highlighted yet.");
@@ -256,6 +284,14 @@
     negativeSummary.textContent =
       data.negative_summary || "No notable complaints found.";
 
+  }
+
+  function normalizeRecommendation(value) {
+    const raw = String(value || "").trim();
+    const normalized = raw.toLowerCase();
+    if (normalized === "buy") return "Recommended";
+    if (normalized === "don't buy" || normalized === "do not buy") return "Not recommended";
+    return raw || "—";
   }
 
   function renderList(ul, items, emptyMessage) {
