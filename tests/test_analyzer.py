@@ -79,61 +79,93 @@ def _mock_openai_client() -> MagicMock:
 # ── analyze_product end-to-end ───────────────────────────────────────────
 
 
+def _patch_scraper(mock_scrape_meta, mock_scrape_reviews):
+    """Configure scraper mocks to return fake data instead of hitting the network."""
+    mock_scrape_reviews.return_value = (_fake_raw_reviews(15), {"total_review_count": 150})
+    mock_scrape_meta.return_value = {
+        "title": "ProSound Elite Headphones",
+        "image_url": "https://example.com/img.jpg",
+        "amazon_rating": 4.5,
+        "total_review_count": 150,
+    }
+
+
+@patch("src.core.analyzer.scrape_product_meta")
+@patch("src.core.analyzer.scrape_reviews_with_meta")
 class TestAnalyzeProductEndToEnd:
-    """Full pipeline with mocked OpenAI — no network, no real API key."""
+    """Full pipeline with mocked OpenAI and scraper — no network calls."""
 
     @patch("src.core.analyzer.OpenAI")
-    def test_returns_complete_analysis_result(self, mock_openai_cls):
+    def test_returns_complete_analysis_result(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert isinstance(result, AnalysisResult)
 
     @patch("src.core.analyzer.OpenAI")
-    def test_summary_text_is_populated(self, mock_openai_cls):
+    def test_summary_text_is_populated(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert len(result.summary_text) > 0
 
     @patch("src.core.analyzer.OpenAI")
-    def test_confidence_score_in_valid_range(self, mock_openai_cls):
+    def test_confidence_score_in_valid_range(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert 0.0 <= result.confidence_score <= 1.0
 
     @patch("src.core.analyzer.OpenAI")
-    def test_reviews_analyzed_is_non_negative(self, mock_openai_cls):
+    def test_reviews_analyzed_is_non_negative(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert result.total_reviews_analyzed >= 0
 
     @patch("src.core.analyzer.OpenAI")
-    def test_pros_or_cons_present(self, mock_openai_cls):
+    def test_pros_or_cons_present(self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert len(result.pros) > 0 or len(result.cons) > 0
 
     @patch("src.core.analyzer.OpenAI")
-    def test_aspects_are_typed_correctly(self, mock_openai_cls):
+    def test_aspects_are_typed_correctly(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 
         assert all(isinstance(a, AspectInfo) for a in result.aspects)
 
     @patch("src.core.analyzer.OpenAI")
-    def test_product_metadata_from_mock_catalog(self, mock_openai_cls):
-        """Product title should come from PRODUCT_META, not be generic."""
+    def test_product_metadata_from_mock_catalog(
+        self, mock_openai_cls, mock_scrape_reviews, mock_scrape_meta
+    ):
+        """Product title should come from scraped meta."""
         mock_openai_cls.return_value = _mock_openai_client()
+        _patch_scraper(mock_scrape_meta, mock_scrape_reviews)
 
         result = analyze_product("https://www.amazon.com/dp/B08N5WRWNW", 100)
 

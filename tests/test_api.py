@@ -5,9 +5,8 @@ Covers three layers:
 1. **Smoke** — ``GET /health``, ``GET /``, and the static asset mount.
 2. **Validation** — ``POST /api/analyze`` rejects bad URLs, bad ranges,
    and bad JSON bodies with the right status codes.
-3. **Cache flow** — the read-through ordering Redis → Postgres → compute,
-   with verification that we don't recompute on a hit and that a Postgres
-   hit warms the Redis cache.
+3. **Cache flow** — the read-through ordering Redis → compute,
+   with verification that we don't recompute on a hit.
 
 These tests deliberately avoid trivial assertions (e.g. "endpoint
 returned 200") and instead pin down the **behavior** that matters for
@@ -24,6 +23,7 @@ from fastapi.testclient import TestClient
 
 from src import main as main_module
 from src.main import app
+from src.models.analysis import AnalysisResult
 
 pytestmark = pytest.mark.unit
 
@@ -192,18 +192,17 @@ def test_analyze_aspect_entries_have_valid_schema():
 
 
 # ---------------------------------------------------------------------------
-# Cache flow: Redis → Postgres → compute
+# Cache flow: Redis → compute
 # ---------------------------------------------------------------------------
 
 
-def test_analyze_redis_hit_returns_cached_without_touching_postgres():
-    """A Redis hit must short-circuit: no DB read, no DB write, no caching."""
+def test_analyze_redis_hit_returns_cached_without_touching_pipeline():
+    """A Redis hit must short-circuit: no recompute and no cache write."""
     cached_payload = {"product_title": "From Redis", "marker": "redis"}
 
     with (
         patch.object(main_module, "get_cached", return_value=cached_payload) as mock_get_cached,
-        patch.object(main_module, "get_analysis") as mock_get_analysis,
-        patch.object(main_module, "save_analysis") as mock_save,
+        patch.object(main_module, "analyze_product") as mock_analyze,
         patch.object(main_module, "set_cached") as mock_set_cached,
     ):
         response = client.post(
@@ -214,41 +213,21 @@ def test_analyze_redis_hit_returns_cached_without_touching_postgres():
     assert response.status_code == 200
     assert response.json() == cached_payload
     mock_get_cached.assert_called_once_with(VALID_ASIN, 100)
-    mock_get_analysis.assert_not_called()
-    mock_save.assert_not_called()
+    mock_analyze.assert_not_called()
     mock_set_cached.assert_not_called()
 
 
-def test_analyze_postgres_hit_warms_redis_cache():
-    """When Redis misses but Postgres has it: return the row AND repopulate Redis."""
-    db_payload = {"product_title": "From Postgres", "marker": "postgres"}
-
+def test_analyze_full_miss_computes_and_caches_fresh_payload():
+    """Cache miss: compute and cache in Redis."""
+    fake_result = AnalysisResult(
+        product_title="Fresh compute",
+        confidence_score=0.5,
+        total_reviews_analyzed=10,
+        avg_rating=4.2,
+    )
     with (
         patch.object(main_module, "get_cached", return_value=None),
-        patch.object(main_module, "get_analysis", return_value=db_payload) as mock_get_db,
-        patch.object(main_module, "save_analysis") as mock_save,
-        patch.object(main_module, "set_cached") as mock_set_cached,
-    ):
-        response = client.post(
-            "/api/analyze",
-            json={"amazon_url": VALID_URL, "max_reviews": 200},
-        )
-
-    assert response.status_code == 200
-    assert response.json() == db_payload
-    mock_get_db.assert_called_once_with(VALID_ASIN, 200)
-    # We do NOT re-save to Postgres on a Postgres hit.
-    mock_save.assert_not_called()
-    # We DO warm the Redis cache so the next request short-circuits.
-    mock_set_cached.assert_called_once_with(VALID_ASIN, 200, db_payload)
-
-
-def test_analyze_full_miss_persists_and_caches_fresh_payload():
-    """Both layers miss: compute, save to Postgres, cache in Redis."""
-    with (
-        patch.object(main_module, "get_cached", return_value=None),
-        patch.object(main_module, "get_analysis", return_value=None),
-        patch.object(main_module, "save_analysis", return_value=True) as mock_save,
+        patch.object(main_module, "analyze_product", return_value=fake_result) as mock_analyze,
         patch.object(main_module, "set_cached", return_value=True) as mock_set_cached,
     ):
         response = client.post(
@@ -258,25 +237,22 @@ def test_analyze_full_miss_persists_and_caches_fresh_payload():
 
     assert response.status_code == 200
 
-    # Both side effects must fire exactly once with the same payload object.
-    mock_save.assert_called_once()
+    mock_analyze.assert_called_once()
     mock_set_cached.assert_called_once()
 
-    save_asin, save_max, save_payload = mock_save.call_args.args
     cache_asin, cache_max, cache_payload = mock_set_cached.call_args.args
-    assert save_asin == cache_asin == VALID_ASIN
-    assert save_max == cache_max == 100
-    assert save_payload is cache_payload  # exact same dict instance
-    assert isinstance(save_payload["product_title"], str)
-    assert save_payload["product_title"].strip()
+    assert cache_asin == VALID_ASIN
+    assert cache_max == 100
+    assert isinstance(cache_payload["product_title"], str)
+    assert cache_payload["product_title"].strip()
 
 
 def test_analyze_keeps_serving_when_storage_unavailable():
-    """Both DB and cache returning falsy must not break the response."""
+    """Cache returning falsy must not break the response."""
+    fake_result = AnalysisResult(product_title="Still works")
     with (
         patch.object(main_module, "get_cached", return_value=None),
-        patch.object(main_module, "get_analysis", return_value=None),
-        patch.object(main_module, "save_analysis", return_value=False),
+        patch.object(main_module, "analyze_product", return_value=fake_result),
         patch.object(main_module, "set_cached", return_value=False),
     ):
         response = client.post(
@@ -293,8 +269,7 @@ def test_analyze_keeps_serving_when_storage_unavailable():
 # ---------------------------------------------------------------------------
 
 
-def test_lifespan_runs_init_db_on_startup():
-    """Booting the app must attempt to initialize the database schema once."""
-    with patch.object(main_module, "init_db") as mock_init, TestClient(app):
+def test_lifespan_runs_without_errors():
+    """Booting the app must not raise (no DB init expected)."""
+    with TestClient(app):
         pass  # entering and exiting the context manager runs lifespan
-    mock_init.assert_called_once()
