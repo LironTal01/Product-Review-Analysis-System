@@ -58,7 +58,7 @@ def _fetch_page(url: str, api_key: str, country_code: str | None = None) -> str 
             _SCRAPER_API_URL,
             params=params,
             timeout=_REQUEST_TIMEOUT_SECONDS,
-            proxies={"http": None, "https": None},
+            proxies={"http": "", "https": ""},
         )
         resp.raise_for_status()
         logger.debug("ScraperAPI returned %d bytes", len(resp.text))
@@ -254,7 +254,6 @@ def _build_review_page_urls(
     dp_params = f"reviewerType=all_reviews&pageNumber={page_num}&sortBy={sort_by}"
     if filter_by_star:
         dp_params += f"&filterByStar={filter_by_star}"
-    # Keep only dp-based variants: in practice they are the most stable with ScraperAPI.
     return [
         f"https://www.amazon.com/dp/{asin}/ref=cm_cr_arp_d_viewopt_srt?{dp_params}",
         f"https://www.amazon.com/dp/{asin}?{query}",
@@ -347,10 +346,9 @@ def scrape_reviews_with_meta(
 
     for page_num in range(1, pages_to_try + 1):
         logger.debug("Scraping page %d for ASIN %s", page_num, asin)
-        page_reviews: list[Review] = []
-        page_meta: dict[str, str] = {}
-        best_new_unique = -1
-        best_reviews_count = 0
+        parsed_on_page = 0
+        new_on_page = 0
+        page_1_meta: dict[str, str] = {}
 
         # Route priority: helpful -> recent -> star filters.
         # Use every profile on each page so stale pagination on one sort still yields rows from others.
@@ -364,83 +362,73 @@ def scrape_reviews_with_meta(
                     continue
 
                 candidate_reviews = _parse_reviews_from_html(html)
-                if not candidate_reviews:
-                    continue
+                parsed_count = len(candidate_reviews)
+                parsed_on_page += parsed_count
 
-                candidate_meta = _extract_review_page_meta(html)
-                new_unique = _count_new_unique(candidate_reviews, seen_keys)
+                # Keep page-1 aggregate metadata behavior (only from page 1).
+                if page_num == 1 and not page_1_meta:
+                    candidate_meta = _extract_review_page_meta(html)
+                    if candidate_meta:
+                        page_1_meta = candidate_meta
+
+                added_now = 0
+                for review in candidate_reviews:
+                    dedupe_key = _review_dedupe_key(review)
+                    if dedupe_key in seen_keys:
+                        continue
+                    seen_keys.add(dedupe_key)
+                    unique_reviews.append(review)
+                    added_now += 1
+                    new_on_page += 1
+                    if len(unique_reviews) >= max_reviews:
+                        break
+
                 logger.debug(
-                    "Candidate page parsed: route=%s/%s url=%s reviews=%d new_unique=%d",
+                    "Candidate page parsed: route=%s/%s url=%s parsed=%d added_unique=%d total_unique=%d",
                     sort_by,
                     filter_by_star or "all",
                     page_url,
-                    len(candidate_reviews),
-                    new_unique,
+                    parsed_count,
+                    added_now,
+                    len(unique_reviews),
                 )
 
-                if new_unique > best_new_unique:
-                    best_new_unique = new_unique
-                    best_reviews_count = len(candidate_reviews)
-                    page_reviews = candidate_reviews
-                    page_meta = candidate_meta
-                    # Good enough for this page, avoid extra slow route probes.
-                    if best_new_unique >= _REVIEWS_PER_PAGE:
-                        break
-            if best_new_unique >= _REVIEWS_PER_PAGE:
+                if len(unique_reviews) >= max_reviews:
+                    break
+            if len(unique_reviews) >= max_reviews:
                 break
-
-        if page_num == 1 and page_meta:
-            aggregate_meta.update(page_meta)
-
-        logger.debug(
-            "Selected page %d candidate: reviews=%d",
-            page_num,
-            best_reviews_count,
-        )
-
-        if not page_reviews:
-            consecutive_empty_pages += 1
-            logger.debug(
-                "No reviews on page %d (consecutive empty pages: %d)",
-                page_num,
-                consecutive_empty_pages,
-            )
-            if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
-                logger.debug("Stopping after repeated empty pages")
-                break
-            continue
-
-        new_on_page = 0
-        for review in page_reviews:
-            dedupe_key = _review_dedupe_key(review)
-            if dedupe_key in seen_keys:
-                continue
-            seen_keys.add(dedupe_key)
-            unique_reviews.append(review)
-            new_on_page += 1
-
-        logger.debug(
-            "Total unique reviews: %d after page %d (new on page: %d)",
-            len(unique_reviews),
-            page_num,
-            new_on_page,
-        )
-        if new_on_page > 0:
-            consecutive_empty_pages = 0
-        if new_on_page == 0:
-            consecutive_empty_pages += 1
-            logger.debug(
-                "Page %d added no new unique reviews (consecutive empty pages: %d)",
-                page_num,
-                consecutive_empty_pages,
-            )
-            if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
-                logger.debug("Stopping after repeated duplicate-only pages")
-                break
-            continue
-
         if len(unique_reviews) >= max_reviews:
             break
+
+        if page_num == 1 and page_1_meta:
+            aggregate_meta.update(page_1_meta)
+
+        if new_on_page > 0:
+            consecutive_empty_pages = 0
+            logger.debug(
+                "Total unique reviews: %d after page %d (new on page: %d)",
+                len(unique_reviews),
+                page_num,
+                new_on_page,
+            )
+        else:
+            consecutive_empty_pages += 1
+            if parsed_on_page == 0:
+                logger.debug(
+                    "No reviews parsed on page %d (consecutive stale pages: %d)",
+                    page_num,
+                    consecutive_empty_pages,
+                )
+            else:
+                logger.debug(
+                    "Page %d added no new unique reviews (parsed=%d; consecutive stale pages: %d)",
+                    page_num,
+                    parsed_on_page,
+                    consecutive_empty_pages,
+                )
+            if consecutive_empty_pages >= _MAX_CONSECUTIVE_STALE_PAGES:
+                logger.debug("Stopping after repeated stale pages")
+                break
 
         time.sleep(_PAGE_DELAY)
 
