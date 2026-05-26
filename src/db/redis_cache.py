@@ -1,8 +1,8 @@
 """Redis cache helpers for analysis and raw review payloads.
 
-This module provides two read-through caches:
-1. ``analysis:{asin}:{max_reviews}`` for final API payloads.
-2. ``raw_reviews:{asin}:{max_reviews}`` for scraped raw review records.
+Two read-through caches keyed by (asin, max_reviews):
+  analysis:{asin}:{max}       — final JSON payload returned to the UI.
+  raw_reviews:{asin}:{max}    — scraped review records before cleaning/LLM.
 """
 
 from __future__ import annotations
@@ -31,10 +31,8 @@ def _raw_key(asin: str, max_reviews: int) -> str:
 
 
 def _client() -> redis.Redis | None:
-    """Build a Redis client or return ``None`` when not configured/reachable.
-
-    ``decode_responses=True`` makes the client return Python strings instead
-    of bytes, which keeps downstream JSON parsing trivial.
+    """Build a Redis client or return None when not configured/reachable.
+    Decode responses to Python strings for easier JSON parsing.
     """
     settings = get_settings()
     if not settings.redis_url:
@@ -54,10 +52,12 @@ def _client() -> redis.Redis | None:
 
 
 def get_cached(asin: str, max_reviews: int) -> dict[str, Any] | None:
-    """Return the cached analysis dict for ``(asin, max_reviews)`` or ``None``."""
+    """Look up the final analysis result in Redis by ASIN and review count.
+    Returns the cached dict ready for the API response, or None on miss.
+    """
     if not asin:
         return None
-
+    logger.debug("Checking analysis cache: asin=%s max_reviews=%d", asin, max_reviews)
     client = _client()
     if client is None:
         return None
@@ -68,7 +68,6 @@ def get_cached(asin: str, max_reviews: int) -> dict[str, Any] | None:
         try:
             return json.loads(raw)
         except (TypeError, ValueError) as exc:
-            # Stale or corrupt entry — drop it so the next request recomputes.
             logger.warning("Discarding bad cache entry for asin=%s: %s", asin, exc)
             client.delete(_key(asin, max_reviews))
             return None
@@ -80,8 +79,11 @@ def get_cached(asin: str, max_reviews: int) -> dict[str, Any] | None:
             client.close()
 
 
-def set_cached(asin: str, max_reviews: int, result: dict[str, Any]) -> bool:
-    """Cache ``result`` for ``TTL_SECONDS``. Returns ``True`` on success."""
+def set_cached(asin, max_reviews, result) -> bool:
+    """Store a final analysis payload in Redis with a 24-hour TTL.
+    Returns True if saved successfully, False otherwise.
+    Silently skips empty or invalid inputs.
+    """
     if not asin or not isinstance(result, dict):
         return False
 
@@ -100,13 +102,14 @@ def set_cached(asin: str, max_reviews: int, result: dict[str, Any]) -> bool:
             client.close()
 
 
-def get_cached_raw_reviews(
-    asin: str, max_reviews: int
-) -> tuple[list[Review], dict[str, str]] | None:
-    """Return cached raw reviews + meta for ``(asin, max_reviews)`` or ``None``."""
+def get_cached_raw_reviews(asin, max_reviews) -> tuple[list[Review], dict] | None:
+    """Look up scraped raw reviews in Redis before hitting ScraperAPI.
+    Returns a (reviews, meta) tuple on hit, or None on miss.
+    Reviews are rebuilt into Review objects from the stored JSON dicts.
+    """
     if not asin:
         return None
-
+    logger.info("Checking raw reviews cache: asin=%s max_reviews=%d", asin, max_reviews)
     client = _client()
     if client is None:
         return None
@@ -166,17 +169,14 @@ def get_cached_raw_reviews(
             client.close()
 
 
-def set_cached_raw_reviews(
-    asin: str,
-    max_reviews: int,
-    reviews: list[Review],
-    meta: dict[str, str],
-) -> bool:
-    """Cache raw reviews + metadata for ``TTL_SECONDS``. Returns ``True`` on success."""
-    if not asin or not isinstance(reviews, list):
-        return False
-    if not reviews:
-        # Avoid caching empty scrape results so the next request can retry scraping.
+def set_cached_raw_reviews(asin, max_reviews, reviews, meta) -> bool:
+    """Store scraped raw reviews and page metadata in Redis with a 24-hour TTL.
+    Returns True on success. Refuses to cache empty review lists so a
+    subsequent request can retry the scrape.
+    """
+
+    # Avoid caching empty scrape results so the next request can retry scraping.
+    if not asin or not isinstance(reviews, list) or not reviews:
         return False
 
     client = _client()

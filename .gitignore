@@ -85,6 +85,8 @@ venv.bak/
 data/datasets/
 *.log
 logs/
+diagnostics/diagnose_amazon_pagination.py
+scripts/diagnose_amazon_pagination.py
 
 # Environment variables
 .env
