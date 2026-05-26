@@ -238,16 +238,19 @@ PRODUCT_META: dict[str, dict[str, str]] = {
         "title": "ProSound ANC-700 Wireless Headphones",
         "image_url": "https://m.media-amazon.com/images/I/mock-headphones.jpg",
         "price": "$79.99",
+        "total_review_count": "1552",
     },
     _KEYBOARD_ASIN: {
         "title": "MechForce K1 Mechanical Gaming Keyboard",
         "image_url": "https://m.media-amazon.com/images/I/mock-keyboard.jpg",
         "price": "$109.99",
+        "total_review_count": "1552",
     },
     _MOUSE_ASIN: {
         "title": "SwiftClick Ultra Wireless Gaming Mouse",
         "image_url": "https://m.media-amazon.com/images/I/mock-mouse.jpg",
         "price": "$69.99",
+        "total_review_count": "1552",
     },
 }
 
@@ -276,11 +279,17 @@ def get_mock_reviews(asin: str, max_reviews: int = 200) -> list[Review]:
     Raises:
         ValueError: If the ASIN is not in the mock catalog.
     """
-    # If ASIN is unknown, pick a deterministic fallback pool by ASIN hash
-    # so different products do not always return the same mock theme.
+    # If ASIN is unknown, pick a deterministic fallback pool by ASIN hash,
+    # but keep the original ASIN key so downstream code can still resolve
+    # PRODUCT_META / total_review_count for *this* product id.
     if asin not in _CATALOG:
         keys = sorted(_CATALOG.keys())
-        asin = keys[sum(ord(ch) for ch in asin) % len(keys)]
+        fallback_asin = keys[sum(ord(ch) for ch in asin) % len(keys)]
+        _CATALOG[asin] = _CATALOG[fallback_asin]
+        if fallback_asin in PRODUCT_META:
+            meta = dict(PRODUCT_META[fallback_asin])
+            meta["title"] = f"Product {asin}"
+            PRODUCT_META[asin] = meta
 
     max_reviews = max(_MIN_REVIEWS, min(max_reviews, _MAX_REVIEWS))
     rng = random.Random(42)
