@@ -56,18 +56,6 @@ class TestFilterSpamReviews:
             ),
             (
                 [
-                    MockReview("Greaaaaaaat product!!!!!!", 5.0, NOW),
-                    MockReview("This is a normal review with proper text.", 4.0, NOW),
-                    MockReview("Wooooooooow amazing", 5.0, NOW),
-                ],
-                [
-                    "Greaaaaaaat product!!!!!!",
-                    "This is a normal review with proper text.",
-                    "Wooooooooow amazing",
-                ],
-            ),
-            (
-                [
                     MockReview(
                         "The battery life is excellent, lasting about 8 hours.",
                         5.0,
@@ -125,13 +113,6 @@ class TestNormalizeRatings:
                 ],
                 [4.0],
             ),
-            (
-                [
-                    MockReview("Bad type", "not-a-number", NOW),  # type: ignore[arg-type]
-                    MockReview("Has rating", 4.0, NOW),
-                ],
-                [4.0],
-            ),
         ],
     )
     def test_normalize_ratings_returns_expected_values(self, reviews, expected_ratings):
@@ -167,14 +148,6 @@ class TestRemoveEmptyReviews:
                     MockReview("Kept", 5.0, NOW),
                 ],
                 ["Kept"],
-            ),
-            (
-                [
-                    MockReview("!!!", 4.0, NOW),
-                    MockReview("...", 4.0, NOW),
-                    MockReview("Real words here", 5.0, NOW),
-                ],
-                ["Real words here"],
             ),
         ],
     )

@@ -71,19 +71,18 @@ def test_static_assets_served():
 # ---------------------------------------------------------------------------
 
 
-def test_analyze_rejects_non_amazon_url():
+@pytest.mark.parametrize(
+    "amazon_url",
+    [
+        "https://www.google.com",
+        "https://www.amazon.com/bestsellers",
+    ],
+    ids=["non_amazon_host", "amazon_without_asin"],
+)
+def test_analyze_rejects_bad_urls(amazon_url: str):
     response = client.post(
         "/api/analyze",
-        json={"amazon_url": "https://www.google.com", "max_reviews": 100},
-    )
-    assert response.status_code == 400
-    assert "detail" in response.json()
-
-
-def test_analyze_rejects_amazon_url_without_asin():
-    response = client.post(
-        "/api/analyze",
-        json={"amazon_url": "https://www.amazon.com/bestsellers", "max_reviews": 100},
+        json={"amazon_url": amazon_url, "max_reviews": 100},
     )
     assert response.status_code == 400
     assert "detail" in response.json()
@@ -114,22 +113,14 @@ def test_analyze_rejects_missing_url():
 # ---------------------------------------------------------------------------
 
 
-def test_analyze_response_returns_json_content_type():
+def test_analyze_response_schema_and_invariants():
+    """Pin down response schema and UI-critical invariants in one place."""
     response = client.post(
         "/api/analyze",
         json={"amazon_url": VALID_URL, "max_reviews": 100},
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
-
-
-def test_analyze_returns_complete_payload_schema():
-    """All fields the static UI reads must be present, with the right types."""
-    response = client.post(
-        "/api/analyze",
-        json={"amazon_url": VALID_URL, "max_reviews": 100},
-    )
-    assert response.status_code == 200
     data = response.json()
 
     expected_keys = {
@@ -155,35 +146,12 @@ def test_analyze_returns_complete_payload_schema():
     assert isinstance(data["cons"], list)
     assert isinstance(data["aspects"], list)
 
-
-def test_analyze_response_business_invariants():
-    """Numeric fields must be internally consistent and clamped correctly.
-
-    These are the invariants the UI depends on for rendering bars and the
-    confidence meter — if they break, the page renders garbage.
-    """
-    response = client.post(
-        "/api/analyze",
-        json={"amazon_url": VALID_URL, "max_reviews": 100},
-    )
-    data = response.json()
-
     # Confidence is a probability-like value.
     assert 0.0 <= data["confidence_score"] <= 1.0
-
     # total_reviews_analyzed is bounded by the user's max_reviews.
     assert data["total_reviews_analyzed"] <= 100
 
-
-def test_analyze_aspect_entries_have_valid_schema():
-    response = client.post(
-        "/api/analyze",
-        json={"amazon_url": VALID_URL, "max_reviews": 100},
-    )
-    aspects = response.json()["aspects"]
-    assert isinstance(aspects, list)
-
-    for aspect in aspects:
+    for aspect in data["aspects"]:
         assert {"name", "sentiment", "mention_count"}.issubset(aspect.keys())
         assert isinstance(aspect["name"], str) and aspect["name"].strip()
         assert aspect["sentiment"] in {"positive", "negative", "mixed"}

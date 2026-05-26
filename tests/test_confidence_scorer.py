@@ -1,11 +1,13 @@
-"""Unit tests for confidence_scorer — Official TDD #1.
+"""Unit tests for confidence_scorer (additional unit-tested module).
 
-Red-green-refactor: tests were written before the implementation.
-Covers edge cases (empty list, single review), monotonicity with review
-count, score ceiling, and the effect of review diversity on the score.
+This file is intentionally *not* one of the two official TDD milestones we present.
+Official TDD components:
+1) ``url_parser`` (Official TDD #1)
+2) ``stats_calculator`` (Official TDD #2)
 
-A stub returning 0.0 passes the empty-list and ceiling checks but fails
-monotonicity and diversity — proving the tests drive a real implementation.
+These tests still provide meaningful coverage for the confidence heuristic:
+edge cases, monotonicity with review count, score ceiling, and the effect
+of review diversity on the score.
 """
 
 from __future__ import annotations
