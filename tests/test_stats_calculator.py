@@ -1,8 +1,13 @@
 """Unit tests for stats_calculator — Official TDD #2.
 
 Red-green-refactor: tests were written before the implementation.
-Covers distribution totals, negative counting, average computation,
-and the empty-input edge case via parametrize-driven scenarios.
+Covers rating distribution totals, negative counting, average
+computation, and the empty-input edge case via parametrize-driven
+scenarios.
+
+A stub returning zeroed StatsResult passes the empty-input class but
+fails distribution sums and averages — proving the tests drive a real
+implementation.
 """
 
 from __future__ import annotations

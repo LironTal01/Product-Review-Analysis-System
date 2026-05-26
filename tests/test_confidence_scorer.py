@@ -1,10 +1,11 @@
-"""Unit tests for the confidence scorer.
+"""Unit tests for confidence_scorer — Official TDD #1.
 
-Covers edge cases (empty list, single review), monotonicity with review count,
-score ceiling, and the effect of review diversity and text quality on the score.
+Red-green-refactor: tests were written before the implementation.
+Covers edge cases (empty list, single review), monotonicity with review
+count, score ceiling, and the effect of review diversity on the score.
 
-Note: a stub that always returns 0.0 still passes (1) empty list == 0.0 and (2) score <= 1.0 for any input.
-That is expected until calculate_confidence is implemented; the other tests fail on such a stub.
+A stub returning 0.0 passes the empty-list and ceiling checks but fails
+monotonicity and diversity — proving the tests drive a real implementation.
 """
 
 from __future__ import annotations
