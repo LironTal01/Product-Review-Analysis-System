@@ -10,165 +10,168 @@
   <header class="site-header">
     <div class="container">
       <h1>
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#hgrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle;margin-right:10px;flex-shrink:0"><defs><linearGradient id="hgrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#17356d"/><stop offset="100%" stop-color="#2e6df6"/></linearGradient></defs><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Product Review Analysis
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#hgrad)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle;margin-right:10px;flex-shrink:0"><defs><linearGradient id="hgrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#17356d"/><stop offset="100%" stop-color="#2e6df6"/></linearGradient></defs><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Product Review Analysis
       </h1>
       <p class="subtitle">AI-powered insights from real Amazon reviews</p>
     </div>
   </header>
 
   <main class="container">
-    <section class="card input-card" aria-labelledby="form-title">
-      <h2 id="form-title">Analyze a product</h2>
-      <form id="analyze-form" novalidate>
-        <div class="field">
-          <label for="amazon-url">Amazon product URL</label>
-          <input
-            type="url"
-            id="amazon-url"
-            name="amazon_url"
-            placeholder="https://www.amazon.com/dp/B08N5WRWNW"
-            required
-            autocomplete="off"
-            spellcheck="false"
-            aria-describedby="url-hint"
-          />
-          <p id="url-hint" class="field-hint">
-            Paste a link from amazon.com, amazon.co.uk, amazon.de, etc.
-          </p>
-          <p id="url-error" class="field-error hidden" role="alert"></p>
-        </div>
+    <div class="top-layout">
+      <div class="primary-col">
+        <section class="card input-card" aria-labelledby="form-title">
+          <h2 id="form-title">Analyze a product</h2>
+          <form id="analyze-form" novalidate>
+            <div class="field">
+              <label for="amazon-url">Amazon product URL</label>
+              <input
+                type="url"
+                id="amazon-url"
+                name="amazon_url"
+                placeholder="https://www.amazon.com/dp/B08N5WRWNW"
+                required
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="url-hint"
+              />
+              <p id="url-hint" class="field-hint">
+                Paste a link from amazon.com, amazon.co.uk, amazon.de, etc.
+              </p>
+              <p id="url-error" class="field-error hidden" role="alert"></p>
+            </div>
 
-        <div class="field">
-          <label for="max-reviews">
-            Target reviews to analyze:
-            <output id="max-reviews-value" for="max-reviews">100</output>
-          </label>
-          <input
-            type="range"
-            id="max-reviews"
-            name="max_reviews"
-            min="25"
-            max="250"
-            step="25"
-            value="100"
-          />
-          <div class="range-ticks" aria-hidden="true">
-            <span>25</span><span>75</span><span>125</span><span>175</span><span>250</span>
-          </div>
-          <p class="field-hint">
-            We’ll analyze up to this number, depending on how many unique reviews are retrieved for the product.
-          </p>
-        </div>
+            <div class="field">
+              <label for="max-reviews">
+                Target reviews to analyze:
+                <output id="max-reviews-value" for="max-reviews">100</output>
+              </label>
+              <input
+                type="range"
+                id="max-reviews"
+                name="max_reviews"
+                min="25"
+                max="250"
+                step="25"
+                value="100"
+              />
+              <div class="range-ticks" aria-hidden="true">
+                <span>25</span><span>75</span><span>125</span><span>175</span><span>250</span>
+              </div>
+              <p class="field-hint">
+                We’ll analyze up to this number, depending on how many unique reviews are retrieved for the product.
+              </p>
+            </div>
 
-        <button type="submit" id="analyze-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Analyze reviews
-        </button>
-      </form>
-    </section>
+            <button type="submit" id="analyze-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Analyze reviews
+            </button>
+          </form>
+        </section>
 
-    <section id="recent-section" class="card recent-section hidden" aria-labelledby="recent-title">
-      <div class="recent-header">
-        <h3 id="recent-title">Recent products</h3>
-        <button type="button" id="recent-clear" class="link-btn">Clear</button>
+        <section id="examples" class="card examples-card" aria-labelledby="examples-title">
+          <h3 id="examples-title">Try one of these</h3>
+          <p class="muted">No URL handy? Pick a sample to see how it works.</p>
+          <ul id="examples-list" class="chip-list"></ul>
+        </section>
       </div>
-      <ul id="recent-list" class="chip-list"></ul>
-    </section>
 
-    <section id="examples" class="card examples-card" aria-labelledby="examples-title">
-      <h3 id="examples-title">Try one of these</h3>
-      <p class="muted">No URL handy? Pick a sample to see how it works.</p>
-      <ul id="examples-list" class="chip-list"></ul>
-    </section>
+      <aside id="recent-sidebar" class="sidebar hidden" aria-label="Recent products">
+        <section id="recent-section" class="card recent-section hidden" aria-labelledby="recent-title">
+          <div class="recent-header">
+            <h3 id="recent-title">Recent products searches</h3>
+            <button type="button" id="recent-clear" class="link-btn">Clear</button>
+          </div>
+          <ul id="recent-list" class="chip-list chip-list-vertical"></ul>
+        </section>
+      </aside>
 
-    <div id="loading" class="loading hidden" role="status" aria-live="polite">
-      <div class="skeleton-stack">
-        <div class="skeleton skeleton-header">
-          <div class="skeleton-block skeleton-thumb"></div>
-          <div class="skeleton-lines">
+      <div id="loading" class="loading hidden full-span" role="status" aria-live="polite">
+        <p class="loading-label">
+          <span class="spinner-sm" aria-hidden="true"></span>
+          Analyzing reviews…
+        </p>
+        <div class="skeleton-stack">
+          <div class="skeleton skeleton-header">
+            <div class="skeleton-block skeleton-thumb"></div>
+            <div class="skeleton-lines">
+              <div class="skeleton-block skeleton-line lg"></div>
+              <div class="skeleton-block skeleton-line sm"></div>
+            </div>
+          </div>
+          <div class="skeleton">
             <div class="skeleton-block skeleton-line lg"></div>
-            <div class="skeleton-block skeleton-line sm"></div>
-            <div class="skeleton-block skeleton-line sm"></div>
+            <div class="skeleton-block skeleton-line short"></div>
           </div>
         </div>
-        <div class="skeleton">
-          <div class="skeleton-block skeleton-line lg"></div>
-          <div class="skeleton-block skeleton-line"></div>
-          <div class="skeleton-block skeleton-line"></div>
-          <div class="skeleton-block skeleton-line short"></div>
-        </div>
-        <div class="skeleton">
-          <div class="skeleton-block skeleton-line lg"></div>
-          <div class="skeleton-block skeleton-line"></div>
-          <div class="skeleton-block skeleton-line short"></div>
-        </div>
       </div>
-      <p class="loading-label">
-        <span class="spinner-sm" aria-hidden="true"></span>
-        Analyzing reviews…
-      </p>
+
+      <div id="error" class="error hidden full-span" role="alert"></div>
+
+      <section id="results" class="results hidden full-span" aria-live="polite">
+        <article class="card product-header">
+          <img id="product-image" alt="" />
+          <div class="product-meta">
+            <h2 id="product-title">Product</h2>
+            <p class="price" id="product-price"></p>
+            <div class="meta-rows">
+              <div class="meta-row" aria-label="Amazon rating and total reviews">
+                <span id="amazon-rating" class="chip chip-rating"></span>
+                <span id="total-review-count" class="chip"></span>
+              </div>
+              <div class="meta-row" aria-label="Analysis coverage">
+                <span id="analyzed-chip" class="chip chip-soft"></span>
+                <span id="requested-chip" class="chip chip-soft"></span>
+              </div>
+              <p id="access-note" class="note note-info hidden"></p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Review summary</h3>
+          <p id="summary-text" class="lead"></p>
+        </article>
+
+        <article class="card recommendation-card">
+          <h3>Purchase recommendation</h3>
+          <p id="recommendation" class="lead"></p>
+          <div class="confidence">
+            <div class="confidence-ring-row">
+              <div class="confidence-text">
+                <p class="confidence-line">Analysis confidence</p>
+                <p id="confidence-basis" class="muted hidden"></p>
+                <p id="confidence-explanation" class="muted"></p>
+              </div>
+              <div class="confidence-ring-wrap">
+                <svg class="confidence-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="confidence-ring-track" cx="50" cy="50" r="42" />
+                  <circle id="confidence-fill" class="confidence-ring-fill" cx="50" cy="50" r="42" />
+                </svg>
+                <span id="confidence-score" class="confidence-pct">0%</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <div class="grid-2">
+          <article class="card pros-card">
+            <h3>Pros</h3>
+            <ul id="pros-list" class="bullet-list"></ul>
+          </article>
+          <article class="card cons-card">
+            <h3>Cons</h3>
+            <ul id="cons-list" class="bullet-list"></ul>
+          </article>
+        </div>
+
+        <article class="card">
+          <h3>Common issues in lower-rated reviews</h3>
+          <p id="negative-summary" class="muted"></p>
+        </article>
+
+      </section>
     </div>
-
-    <div id="error" class="error hidden" role="alert"></div>
-
-    <section id="results" class="results hidden" aria-live="polite">
-      <article class="card product-header">
-        <img id="product-image" alt="" />
-        <div class="product-meta">
-          <h2 id="product-title">Product</h2>
-          <p class="price" id="product-price"></p>
-          <div class="meta-rows">
-            <div class="meta-row" aria-label="Amazon rating and total reviews">
-              <span id="amazon-rating" class="chip chip-rating"></span>
-              <span id="total-review-count" class="chip"></span>
-            </div>
-            <div class="meta-row" aria-label="Analysis coverage">
-              <span id="analyzed-chip" class="chip chip-soft"></span>
-              <span id="requested-chip" class="chip chip-soft"></span>
-            </div>
-            <p id="access-note" class="note note-info hidden"></p>
-          </div>
-        </div>
-      </article>
-
-      <article class="card">
-        <h3>Review summary</h3>
-        <p id="summary-text" class="lead"></p>
-      </article>
-
-      <article class="card recommendation-card">
-        <h3>Purchase recommendation</h3>
-        <p id="recommendation" class="lead"></p>
-        <div class="confidence">
-          <div class="confidence-meter" aria-hidden="true">
-            <div id="confidence-fill" class="confidence-fill"></div>
-          </div>
-          <p class="confidence-line">
-            <span class="confidence-label">Analysis confidence:</span>
-            <strong id="confidence-score">0%</strong>
-          </p>
-          <p id="confidence-basis" class="muted hidden"></p>
-          <p id="confidence-explanation" class="muted"></p>
-        </div>
-      </article>
-
-      <div class="grid-2">
-        <article class="card pros-card">
-          <h3>Pros</h3>
-          <ul id="pros-list" class="bullet-list"></ul>
-        </article>
-        <article class="card cons-card">
-          <h3>Cons</h3>
-          <ul id="cons-list" class="bullet-list"></ul>
-        </article>
-      </div>
-
-      <article class="card">
-        <h3>Common issues in lower-rated reviews</h3>
-        <p id="negative-summary" class="muted"></p>
-      </article>
-
-    </section>
   </main>
 
   <footer class="site-footer">
@@ -177,6 +180,6 @@
     </div>
   </footer>
 
-  <script src="/static/app.js?v=3" defer></script>
+  <script src="/static/app.js?v=4" defer></script>
 </body>
 </html>

@@ -1,11 +1,12 @@
-/* PRAS — minimal, product-style layout. No framework. */
+/* ===== PRAS — Product Review Analysis System ===== */
 
+/* --- Global color palette & design tokens --- */
 :root {
   --bg: #f3f6fb;
   --bg-soft: #edf3ff;
   --surface: #ffffff;
-  --surface-alt: #f8fbff;
-  --border: #dde5f1;
+  --surface-alt: #ffffff;
+  --border: #e6e8ee;
   --text: #172130;
   --muted: #5d6b80;
   --accent: #2e6df6;
@@ -17,16 +18,18 @@
   --warning-bg: #fff4e5;
   --error-bg: #fdecea;
   --error-text: #9b1c12;
-  --shadow-sm: 0 4px 10px rgba(16, 35, 72, 0.06);
-  --shadow-md: 0 10px 28px rgba(20, 42, 88, 0.1);
-  --shadow-lg: 0 18px 44px rgba(18, 43, 94, 0.14);
-  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgba(20, 25, 35, 0.06);
+  --shadow-md: 0 6px 18px rgba(20, 25, 35, 0.08);
+  --shadow-lg: 0 10px 28px rgba(20, 25, 35, 0.1);
+  --radius: 10px;
 }
 
+/* --- Reset --- */
 * {
   box-sizing: border-box;
 }
 
+/* --- Page background & base font --- */
 html,
 body {
   margin: 0;
@@ -39,38 +42,21 @@ body {
   line-height: 1.58;
 }
 
+/* --- Sticky footer: push footer to bottom even on short pages --- */
 body {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  border-radius: 999px;
-  pointer-events: none;
-  filter: blur(10px);
+main.container {
+  flex: 1;
 }
 
-body::before {
-  top: -140px;
-  right: -100px;
-  width: 360px;
-  height: 360px;
-  background: radial-gradient(circle, rgba(74, 129, 255, 0.25), rgba(74, 129, 255, 0));
-}
-
-body::after {
-  bottom: -180px;
-  left: -120px;
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, rgba(109, 195, 255, 0.2), rgba(109, 195, 255, 0));
-}
-
+/* --- Centered content wrapper (max page width) --- */
 .container {
-  max-width: 960px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -81,74 +67,115 @@ body::after {
   }
 }
 
-/* Header */
+/* ===== TOP BAR: logo + gradient title + subtitle ===== */
 .site-header {
   background: linear-gradient(135deg, #ffffff 0%, #f6f9ff 100%);
   border-bottom: 1px solid var(--border);
-  padding: 34px 0 28px;
+  padding: 24px 0 24px;
   margin-bottom: 30px;
   box-shadow: var(--shadow-sm);
 }
 
+/* "Product Review Analysis" gradient text */
 .site-header h1 {
   display: flex;
   align-items: center;
-  margin: 0 0 4px;
-  font-size: 30px;
+  margin: 0 0 6px;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  background: linear-gradient(90deg, #17356d 0%, #2859b6 42%, #2e6df6 100%);
+  background: linear-gradient(90deg, #2859b6 0%, #3a7bff 50%, #2e6df6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+/* "AI-powered insights from real Amazon reviews" */
 .site-header .subtitle {
   margin: 0;
+  padding-left: 40px;
   color: var(--muted);
   font-size: 16px;
 }
 
-/* Cards */
+/* ===== WHITE CARDS: shared base for every card on the page ===== */
 .card {
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
-  padding: 22px 24px;
+  padding: 26px 28px;
   margin-bottom: 24px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .card:hover {
-  transform: translateY(-1px);
   box-shadow: var(--shadow-lg);
 }
 
+/* ===== TWO-COLUMN LAYOUT: "Analyze a product" (left) + "Recent searches" sidebar (right) ===== */
+.top-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Left column (form + examples + results after analysis) */
+.primary-col {
+  min-width: 0;
+}
+
+/* Right column (recent searches sidebar) */
+.sidebar {
+  min-width: 0;
+}
+
+/* Makes loading / error / results span both columns */
+.full-span {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .top-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Card titles (h2 / h3 inside any card) --- */
 .card h2,
 .card h3 {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
+/* --- Lead paragraph inside cards (summary text, recommendation, etc.) --- */
 .card .lead {
   font-size: 16px;
   color: var(--text);
   margin: 0;
 }
 
+/* --- Gray helper text (No URL handy? Pick a sample to see how it works.) --- */
 .muted {
   color: var(--muted);
   font-size: 16px;
 }
 
-/* Form */
+/* ===== "ANALYZE A PRODUCT" FORM CARD ===== */
+.input-card {
+  padding: 30px 32px;
+  margin-bottom: 12px;
+}
+
+/* "Analyze a product" title */
 .input-card h2 {
   font-size: 20px;
 }
 
+/* --- Form fields (URL input, slider, labels, hints) --- */
 .field {
   margin-bottom: 16px;
 }
@@ -161,11 +188,12 @@ body::after {
   color: #263248;
 }
 
+/* URL text input */
 input[type="url"],
 input[type="search"],
 select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 16px;
@@ -174,6 +202,7 @@ select {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
+/* Blue glow when URL input is focused */
 input[type="url"]:focus,
 input[type="search"]:focus,
 select:focus {
@@ -183,17 +212,20 @@ select:focus {
   box-shadow: 0 0 0 4px rgba(46, 109, 246, 0.14);
 }
 
+/* Red border when URL is invalid */
 input[type="url"].invalid {
   border-color: var(--negative);
   box-shadow: 0 0 0 3px rgba(196, 57, 44, 0.12);
 }
 
+/* Small gray hint below inputs */
 .field-hint {
   margin: 6px 0 0;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--muted);
 }
 
+/* Red error text below URL input */
 .field-error {
   margin: 6px 0 0;
   font-size: 16px;
@@ -201,12 +233,14 @@ input[type="url"].invalid {
   font-weight: 500;
 }
 
+/* "Target reviews to analyze" slider */
 input[type="range"] {
   width: 100%;
   margin: 6px 0 4px;
   accent-color: var(--accent);
 }
 
+/* 25 / 75 / 125 / 175 / 250 tick labels under the slider */
 .range-ticks {
   display: flex;
   justify-content: space-between;
@@ -215,11 +249,13 @@ input[type="range"] {
   padding: 0 2px;
 }
 
+/* Blue number showing current slider value (e.g. "100") */
 #max-reviews-value {
   font-weight: 600;
   color: var(--accent);
 }
 
+/* ===== BLUE "ANALYZE REVIEWS" BUTTON ===== */
 button {
   display: inline-flex;
   align-items: center;
@@ -228,13 +264,14 @@ button {
   color: #fff;
   border: none;
   border-radius: 10px;
-  padding: 11px 26px;
+  margin-top: 4px;
+  padding: 12px 26px;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 10px 20px rgba(46, 109, 246, 0.24);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 4px 12px rgba(46, 109, 246, 0.18);
+  transition: box-shadow 0.15s ease, filter 0.15s ease, transform 0.15s ease;
   position: relative;
   overflow: hidden;
 }
@@ -243,64 +280,90 @@ button {
   width: auto;
 }
 
-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
-  transform: translateX(-120%);
-  transition: transform 0.35s ease;
-}
-
+/* Hover: brightens + symmetric blue glow */
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(1.04);
-  box-shadow: 0 14px 24px rgba(46, 109, 246, 0.28);
+  filter: brightness(1.10);
+  box-shadow: 0 0 20px rgba(46, 109, 246, 0.28);
 }
 
-button:hover:not(:disabled)::after {
-  transform: translateX(0);
+/* Click: press-inward effect */
+button:active:not(:disabled) {
+  filter: brightness(0.90);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
+  transform: scale(0.95);
 }
 
+/* Grayed out while analysis is running */
 button:disabled {
   background: #aebcd1;
   box-shadow: none;
   cursor: not-allowed;
 }
 
-/* Recent searches + examples */
+/* ===== "RECENT SEARCHES" SIDEBAR + "TRY ONE OF THESE" EXAMPLES ===== */
+
+/* Header row inside the recent sidebar: title + Clear button */
 .recent-section .recent-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 18px;
+  gap: 24px;
 }
 
+/* Section titles: "Recent products searches" / "Try one of these" */
 .recent-section h3,
 .examples-card h3 {
   margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
 }
 
+/* Extra padding for the recent sidebar card */
+.recent-section.card {
+  padding: 28px 30px;
+}
+
+/* Product name buttons inside the recent sidebar */
+.recent-section .url-chip {
+  padding: 10px 14px;
+}
+
+/* Allow long product names to wrap instead of being cut off */
+.recent-section .chip-label {
+  max-width: 100% !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+/* "No URL handy?" description under "Try one of these" */
 .examples-card .muted {
   margin: 0 0 12px;
 }
 
+/* "Clear" button in the recent sidebar header */
 .link-btn {
-  background: none;
-  color: var(--muted);
-  border: none;
-  padding: 4px 8px;
+  background: #f9fafb;
+  color: #333b4a;
+  border: 1px solid #d8dce4;
+  padding: 8px 18px;
   font-size: 16px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
   font-weight: 600;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease;
 }
 
 .link-btn:hover {
-  color: var(--accent);
-  background: rgba(0, 102, 192, 0.08);
+  color: var(--text);
+  background: #e4e6ec;
+  border-color: #b8beca;
 }
 
+/* ===== PILL-SHAPED BUTTONS: "Echo Dot", "Sample headphones", product names ===== */
+
+/* Horizontal list of pill buttons */
 .chip-list {
   list-style: none;
   margin: 0;
@@ -310,29 +373,41 @@ button:disabled {
   gap: 8px;
 }
 
+/* Vertical list variant (used in recent sidebar) */
+.chip-list-vertical {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 10px;
+}
+
+/* Individual pill button (example URLs + recent product names) */
 .url-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--text);
-  background: #f7faff;
+  background: #f7f8fb;
   border: 1px solid var(--border);
   cursor: pointer;
   font-family: inherit;
   max-width: 100%;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
 }
 
+/* Hover: gray gradient background + blue text + subtle blue glow */
 .url-chip:hover {
-  transform: translateY(-1px);
-  background: var(--accent-soft);
-  border-color: #c3d7ff;
+  background: linear-gradient(135deg, #f0f2f6 0%, #e8eaf0 100%);
+  border-color: #c0c8d8;
   color: var(--accent);
+  box-shadow: 0 0 6px rgba(46, 109, 246, 0.12);
 }
 
+/* Text inside a pill button (truncated with "..." if too long) */
 .url-chip .chip-label {
   white-space: nowrap;
   overflow: hidden;
@@ -340,30 +415,36 @@ button:disabled {
   max-width: 260px;
 }
 
-/* Loading + skeleton */
+/* ===== LOADING SKELETON: shimmer animation while waiting for analysis ===== */
+
+/* Outer card that wraps the skeleton + "Analyzing reviews..." label */
 .loading {
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px 22px;
+  padding: 20px 28px 22px;
+  margin-top: -12px;
   margin-bottom: 20px;
   box-shadow: var(--shadow-md);
 }
 
-.loading p,
-.loading-label {
+.loading p {
   margin: 0;
-  color: var(--muted);
+  color: var(--text);
 }
 
-.loading-label {
+/* "Analyzing reviews..." text + spinning circle */
+.loading .loading-label {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  font-size: 16px;
+  gap: 16px;
+  margin: 0 0 22px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
 }
 
+/* Spinning circle (used next to "Analyzing reviews...") */
 .spinner,
 .spinner-sm {
   border: 3px solid var(--border);
@@ -374,14 +455,14 @@ button:disabled {
 }
 
 .spinner {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .spinner-sm {
-  width: 14px;
-  height: 14px;
-  border-width: 2px;
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
 }
 
 @keyframes spin {
@@ -390,6 +471,7 @@ button:disabled {
   }
 }
 
+/* Vertical stack of skeleton rows */
 .skeleton-stack {
   display: flex;
   flex-direction: column;
@@ -402,19 +484,22 @@ button:disabled {
   gap: 10px;
 }
 
+/* Top row: fake product thumbnail + text lines */
 .skeleton-header {
   flex-direction: row;
   align-items: center;
   gap: 16px;
 }
 
+/* Fake square product image placeholder */
 .skeleton-thumb {
-  width: 70px;
-  height: 70px;
-  border-radius: 6px;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
+/* Text lines next to the fake image */
 .skeleton-lines {
   flex: 1;
   display: flex;
@@ -422,33 +507,38 @@ button:disabled {
   gap: 8px;
 }
 
+/* Animated shimmer wave on each gray placeholder block */
 .skeleton-block {
   background: linear-gradient(
     90deg,
-    #eef1f4 0%,
-    #f6f8fa 50%,
-    #eef1f4 100%
+    #c8d6f0 0%,
+    #e8eefb 40%,
+    #c8d6f0 80%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
   border-radius: 4px;
 }
 
+/* Default placeholder line */
 .skeleton-line {
-  height: 12px;
+  height: 18px;
   width: 100%;
 }
 
+/* Wider/thicker line (simulates a title) */
 .skeleton-line.lg {
-  height: 18px;
+  height: 16px;
   width: 55%;
 }
 
+/* Narrow/thinner line (simulates metadata) */
 .skeleton-line.sm {
-  height: 11px;
+  height: 12px;
   width: 35%;
 }
 
+/* Shorter line variant */
 .skeleton-line.short {
   width: 70%;
 }
@@ -462,7 +552,7 @@ button:disabled {
   }
 }
 
-/* Error */
+/* ===== RED ERROR BAR (shown when the API returns an error) ===== */
 .error {
   background: var(--error-bg);
   color: var(--error-text);
@@ -474,18 +564,21 @@ button:disabled {
   box-shadow: 0 10px 18px rgba(155, 28, 18, 0.08);
 }
 
-/* Hidden */
+/* ===== UTILITY: hide any element ===== */
 .hidden {
   display: none !important;
 }
 
-/* Product header */
+/* ===== PRODUCT CARD: image + title + price + rating + review count ===== */
+
+/* Flex row: product image on the left, text on the right */
 .product-header {
   display: flex;
   gap: 18px;
   align-items: center;
 }
 
+/* Product thumbnail image */
 #product-image {
   width: 112px;
   height: 112px;
@@ -496,16 +589,19 @@ button:disabled {
   flex-shrink: 0;
 }
 
+/* Hide broken image icon when no src is set */
 #product-image:not([src]),
 #product-image[src=""] {
   visibility: hidden;
 }
 
+/* Text block: title, price, rating, review counts */
 .product-meta {
   flex: 1;
   min-width: 0;
 }
 
+/* Product title (e.g. "ProSound ANC-700 Wireless Headphones") */
 .product-meta h2 {
   margin: 0 0 6px;
   font-size: 22px;
@@ -518,6 +614,7 @@ button:disabled {
   overflow: hidden;
 }
 
+/* Blue price tag (e.g. "$79.99") */
 .price {
   margin: 0 0 4px;
   font-size: 18px;
@@ -525,12 +622,14 @@ button:disabled {
   color: var(--accent);
 }
 
+/* Vertical stack: rating row, review count row, note */
 .meta-rows {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
+/* Horizontal row inside meta-rows */
 .meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -538,34 +637,38 @@ button:disabled {
   align-items: center;
 }
 
-/* Small chips/badges */
+/* ===== INLINE TEXT BADGES: rating, review count, analyzed count ===== */
+
+/* Base style — plain text, no bubble/border */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 16px;
-  color: var(--text);
-  background: #f7faff;
-  border: 1px solid var(--border);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+  padding: 0;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   font-variant-numeric: tabular-nums;
 }
 
+/* "Analyzed 30 unique reviews..." — bold black text */
 .chip-soft {
-  background: var(--accent-soft);
-  border-color: #c3d7ff;
-  color: #1f3f88;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.chip-rating {
-  background: #fff7e6;
-  border-color: #f0dca6;
-  color: #6a4a00;
+/* "★ 3.3 Amazon average rating" + "1,552 total reviews" */
+.chip-rating,
+.meta-row .chip {
+  font-size: 16px;
+  color: var(--text);
 }
 
-/* Calm info note */
+/* ===== INFO NOTE (light blue box, currently unused) ===== */
 .note {
   margin: 0;
   font-size: 16px;
@@ -580,66 +683,134 @@ button:disabled {
   border: 1px solid #d7e6ff;
 }
 
-/* Recommendation + confidence */
+/* ===== PURCHASE RECOMMENDATION CARD ===== */
+
+/* "Buy" / "Don't buy" / mixed recommendation text */
 .recommendation-card .lead {
-  font-size: 18px;
-  margin-bottom: 14px;
-  font-weight: 500;
+  font-size: 26px;
+  margin-bottom: 16px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  overflow: visible;
 }
 
+/* Green "BUY" — bold green with subtle glow */
+.recommendation-card .lead.rec-buy {
+  color: #0b6e34;
+  text-shadow: 0 0 18px rgba(31, 138, 59, 0.25);
+}
+
+/* Red "DON'T BUY" — bold red with subtle glow */
+.recommendation-card .lead.rec-dont-buy {
+  color: #a01d13;
+  text-shadow: 0 0 18px rgba(196, 57, 44, 0.25);
+}
+
+/* Neutral / mixed recommendation (normal case, not shouting) */
+.recommendation-card .lead.rec-neutral {
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  font-size: 18px;
+  text-shadow: none;
+}
+
+/* ===== CONFIDENCE RING (circular progress with % inside) ===== */
+
+/* Separator line above the confidence section */
 .confidence {
   border-top: 1px solid var(--border);
-  padding-top: 14px;
+  padding-top: 18px;
 }
 
-.confidence-meter {
-  width: 100%;
-  height: 8px;
-  background: #e4ebf7;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.confidence-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b7bff, #1f5ce0);
-  width: 0%;
-  border-radius: 999px;
-  transition: width 0.6s ease, background 0.6s ease;
-}
-
-.confidence-fill.low {
-  background: linear-gradient(90deg, #e05c3b, #c43b1f);
-}
-
-.confidence-fill.medium {
-  background: linear-gradient(90deg, #f0a500, #d48b00);
-}
-
-.confidence-fill.high {
-  background: linear-gradient(90deg, #27a84a, #1f8a3b);
-}
-
-.confidence-line {
-  margin: 0 0 4px;
-  font-size: 16px;
-  color: var(--text);
+/* Text on the left, ring on the right */
+.confidence-ring-row {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 24px;
 }
 
-.confidence-line strong {
-  font-size: 20px;
+/* Text block (left side) */
+.confidence-text {
+  flex: 1;
+  min-width: 0;
 }
 
-.confidence-label {
-  color: var(--muted);
+/* "Analysis confidence" label */
+.confidence-line {
+  margin: 0 0 8px;
+  font-size: 18px;
   font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
 }
 
-/* Pros / Cons */
+/* Wrapper: positions the % text on top of the SVG ring (right side) */
+.confidence-ring-wrap {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+}
+
+/* SVG circle container */
+.confidence-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+/* Gray background circle */
+.confidence-ring-track {
+  fill: none;
+  stroke: #e4ebf7;
+  stroke-width: 8;
+}
+
+/* Colored arc (stroke-dashoffset set by JS) */
+.confidence-ring-fill {
+  fill: none;
+  stroke: #3b7bff;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 263.9;
+  stroke-dashoffset: 263.9;
+  transition: stroke-dashoffset 1s ease-out, stroke 0.6s ease;
+}
+
+/* Red ring: low confidence (<40%) */
+.confidence-ring-fill.low {
+  stroke: #d9453a;
+}
+
+/* Orange ring: medium confidence (40-70%) */
+.confidence-ring-fill.medium {
+  stroke: #e89d00;
+}
+
+/* Green ring: high confidence (>70%) */
+.confidence-ring-fill.high {
+  stroke: #22964a;
+}
+
+/* Percentage number centered inside the ring */
+.confidence-pct {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* ===== PROS & CONS: two side-by-side cards (green + red) ===== */
+
+/* Two-column grid wrapper */
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -651,41 +822,75 @@ button:disabled {
   margin-bottom: 0;
 }
 
+/* Bullet list inside pros/cons cards */
 .bullet-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
 }
 
 .bullet-list li {
-  margin-bottom: 6px;
-  line-height: 1.6;
+  margin-bottom: 8px;
+  line-height: 1.65;
+  font-size: 16px;
+  color: var(--text);
 }
 
+.bullet-list li::marker {
+  color: inherit;
+}
+
+/* Green "Pros" card */
 .pros-card {
-  background: linear-gradient(160deg, #f0faf3 0%, #e6f7eb 100%);
-  border-color: #c4e4cd;
+  background: linear-gradient(160deg, #eef9f1 0%, #e2f4e8 100%);
+  border: 2px solid #a8d4b6;
+  border-left: 5px solid var(--positive);
+  box-shadow: 0 4px 14px rgba(31, 138, 59, 0.10);
 }
 
 .pros-card h3 {
   color: var(--positive);
+  font-size: 20px;
+  font-weight: 700;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #b8dcc5;
+  margin-bottom: 16px;
+  text-shadow: 0 1px 2px rgba(31, 138, 59, 0.12);
 }
 
+.pros-card .bullet-list li::marker {
+  color: var(--positive);
+}
+
+/* Red "Cons" card */
 .cons-card {
-  background: linear-gradient(160deg, #fff4f3 0%, #fdecea 100%);
-  border-color: #f1c8c4;
+  background: linear-gradient(160deg, #fceae8 0%, #f6d6d3 100%);
+  border: 2px solid #dda29c;
+  border-left: 5px solid var(--negative);
+  box-shadow: 0 4px 14px rgba(196, 57, 44, 0.10);
 }
 
 .cons-card h3 {
   color: var(--negative);
+  font-size: 20px;
+  font-weight: 700;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e8b5b0;
+  margin-bottom: 16px;
+  text-shadow: 0 1px 2px rgba(196, 57, 44, 0.12);
 }
 
+.cons-card .bullet-list li::marker {
+  color: var(--negative);
+}
+
+/* Stack pros/cons vertically on narrow screens */
 @media (max-width: 640px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
 }
 
-/* Rating bars */
+/* ===== RATING BARS (star distribution, currently unused in UI) ===== */
 .rating-bars {
   display: flex;
   flex-direction: column;
@@ -724,7 +929,9 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-/* Aspects */
+/* ===== ASPECT PILLS: colored tags like "battery life", "sound quality" ===== */
+
+/* Filter controls row above the aspect pills */
 .aspect-controls {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -759,6 +966,7 @@ button:disabled {
   }
 }
 
+/* Horizontal wrap of aspect pills */
 .aspects-list {
   list-style: none;
   margin: 0;
@@ -768,6 +976,7 @@ button:disabled {
   gap: 8px;
 }
 
+/* Individual aspect pill (e.g. "battery life") */
 .aspect-pill {
   display: inline-flex;
   align-items: center;
@@ -780,40 +989,44 @@ button:disabled {
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.55);
 }
 
+/* Green pill: positive sentiment */
 .aspect-pill.positive {
   border-color: #c4e4cd;
   background: #e9f6ed;
   color: var(--positive);
 }
 
+/* Red pill: negative sentiment */
 .aspect-pill.negative {
   border-color: #f1c8c4;
   background: #fbeae8;
   color: var(--negative);
 }
 
+/* Orange pill: mixed sentiment */
 .aspect-pill.mixed {
   border-color: #f0dca6;
   background: var(--warning-bg);
   color: var(--mixed);
 }
 
+/* Small number badge inside an aspect pill (mention count) */
 .aspect-pill .count {
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 6px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-/* Empty state for aspects filter */
+/* ===== EMPTY STATE: shown when no aspects match the filter ===== */
 .empty-state {
   color: var(--muted);
   font-size: 16px;
   padding: 6px 0;
 }
 
-/* Footer */
+/* ===== BOTTOM BAR: "PRAS — Product Review Analysis System" ===== */
 .site-footer {
   margin-top: 40px;
   padding: 18px 0 24px;
@@ -828,6 +1041,7 @@ button:disabled {
   text-align: center;
 }
 
+/* ===== FADE-IN ANIMATION: results slide up when they appear ===== */
 #results {
   animation: fadeInUp 0.35s ease;
 }

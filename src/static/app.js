@@ -18,6 +18,7 @@
 
   const examplesSection = document.getElementById("examples");
   const examplesList = document.getElementById("examples-list");
+  const recentSidebar = document.getElementById("recent-sidebar");
   const recentSection = document.getElementById("recent-section");
   const recentList = document.getElementById("recent-list");
   const recentClearBtn = document.getElementById("recent-clear");
@@ -145,7 +146,13 @@
       renderRecent();
       resultsEl.classList.remove("hidden");
       examplesSection.classList.add("hidden");
-      resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => {
+        const card = document.querySelector(".product-header");
+        if (card) {
+          const y = card.getBoundingClientRect().top + window.scrollY - 30;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      });
     } catch (err) {
       showError("Network error: " + (err && err.message ? err.message : String(err)));
     } finally {
@@ -156,12 +163,16 @@
   function setLoading(isLoading) {
     if (isLoading) {
       loadingEl.classList.remove("hidden");
+      examplesSection.classList.add("hidden");
       analyzeBtn.disabled = true;
       analyzeBtn.textContent = "Analyzing…";
     } else {
       loadingEl.classList.add("hidden");
       analyzeBtn.disabled = false;
       analyzeBtn.textContent = "Analyze reviews";
+      if (resultsEl.classList.contains("hidden")) {
+        examplesSection.classList.remove("hidden");
+      }
     }
   }
 
@@ -231,38 +242,40 @@
     productPrice.textContent = data.product_price || "";
 
     const rating = Number(data.amazon_rating);
-    amazonRating.textContent = rating > 0 ? `★ ${rating.toFixed(1)} Amazon rating` : "";
+    amazonRating.textContent = rating > 0 ? `★ ${rating.toFixed(1)}  Amazon average rating` : "";
     amazonRating.classList.toggle("hidden", !(rating > 0));
 
     const reviewCount = Number(data.total_review_count);
     const analyzedCount = Number(data.total_reviews_analyzed || 0);
-    totalReviewCount.textContent = reviewCount > 0 ? `${reviewCount.toLocaleString()} reviews on Amazon` : "";
+    totalReviewCount.textContent = reviewCount > 0 ? `${reviewCount.toLocaleString()} total reviews` : "";
     totalReviewCount.classList.toggle("hidden", !(reviewCount > 0));
 
     const requested = Number(requestedMaxReviews || 0);
-    analyzedChip.textContent =
-      analyzedCount > 0
-        ? `Included: ${analyzedCount.toLocaleString()} unique reviews`
-        : "Included: 0 reviews";
-    requestedChip.textContent = requested > 0 ? `Requested: ${requested.toLocaleString()}` : "";
-    requestedChip.classList.toggle("hidden", !(requested > 0));
-
-    const shouldShowNote = requested > 0 && analyzedCount > 0 && analyzedCount < requested;
-    if (shouldShowNote) {
-      accessNote.textContent =
-        "Analysis uses the unique reviews available.";
-      accessNote.classList.remove("hidden");
+    if (requested > 0) {
+      analyzedChip.textContent =
+        analyzedCount > 0
+          ? `Analyzed ${analyzedCount.toLocaleString()} unique reviews (requested up to ${requested.toLocaleString()}).`
+          : `Analyzed 0 reviews (requested up to ${requested.toLocaleString()}).`;
     } else {
-      accessNote.textContent = "";
-      accessNote.classList.add("hidden");
+      analyzedChip.textContent =
+        analyzedCount > 0 ? `Analyzed ${analyzedCount.toLocaleString()} unique reviews.` : "Analyzed 0 reviews.";
     }
+    requestedChip.textContent = "";
+    requestedChip.classList.add("hidden");
+    accessNote.textContent = "";
+    accessNote.classList.add("hidden");
 
     summaryText.textContent = data.summary_text || "—";
-    recommendation.textContent = normalizeRecommendation(data.recommendation || "—");
+    const rec = normalizeRecommendation(data.recommendation || "—");
+    recommendation.textContent = rec.text;
+    recommendation.classList.remove("rec-buy", "rec-dont-buy", "rec-neutral");
+    recommendation.classList.add(rec.kind === "buy" ? "rec-buy" : rec.kind === "dont-buy" ? "rec-dont-buy" : "rec-neutral");
 
     const confidence = clamp01(Number(data.confidence_score) || 0);
     const confidencePct = Math.round(confidence * 100);
-    confidenceFill.style.width = confidencePct + "%";
+    const circumference = 2 * Math.PI * 42;
+    confidenceFill.style.strokeDasharray = circumference;
+    confidenceFill.style.strokeDashoffset = circumference * (1 - confidence);
     confidenceFill.classList.remove("low", "medium", "high");
     if (confidencePct < 40) confidenceFill.classList.add("low");
     else if (confidencePct < 70) confidenceFill.classList.add("medium");
@@ -288,10 +301,37 @@
 
   function normalizeRecommendation(value) {
     const raw = String(value || "").trim();
-    const normalized = raw.toLowerCase();
-    if (normalized === "buy") return "Recommended";
-    if (normalized === "don't buy" || normalized === "do not buy") return "Not recommended";
-    return raw || "—";
+    if (!raw || raw === "—") return { text: "—", kind: "neutral" };
+
+    const norm = raw
+      .toLowerCase()
+      .replace(/[^\w\s']/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const isDontBuy =
+      /don'?t\s*buy|do\s*not\s*buy|not\s*recommend|avoid|skip|stay\s*away|pass\b/.test(norm) ||
+      (/\b(not|don'?t|avoid|below|alternative|skip)\b/.test(norm) &&
+        /\b(buy|recommend|purchase)\b/.test(norm));
+
+    if (isDontBuy) return { text: "Don't buy", kind: "dont-buy" };
+
+    const isBuy =
+      /\b(buy|purchase|recommend|worth|consider\s*buying|go\s*for|great|solid\s*choice)\b/.test(norm) &&
+      !/don'?t|not|avoid|alternative|skip/.test(norm);
+
+    if (isBuy) return { text: "Buy", kind: "buy" };
+
+    if (/consider|mixed|depends|conditional|caveats|aware|willing/.test(norm))
+      return { text: "Buy", kind: "buy" };
+
+    return { text: toSentenceCase(raw), kind: "neutral" };
+  }
+
+  function toSentenceCase(text) {
+    const s = String(text || "").trim();
+    if (!s) return s;
+    return s.replace(/(^\w|[.!?]\s+\w)/g, (ch) => ch.toUpperCase());
   }
 
   function renderList(ul, items, emptyMessage) {
@@ -374,9 +414,11 @@
 
     if (entries.length === 0) {
       recentSection.classList.add("hidden");
+      if (recentSidebar) recentSidebar.classList.add("hidden");
       return;
     }
 
+    if (recentSidebar) recentSidebar.classList.remove("hidden");
     recentSection.classList.remove("hidden");
 
     for (const entry of entries) {
