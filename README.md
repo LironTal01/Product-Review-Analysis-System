@@ -4,7 +4,7 @@
 
 **Turn large collections of Amazon reviews into concise, evidence-grounded purchasing insights.**
 
-Python · FastAPI · OpenAI · Embeddings · Redis · Docker · Azure
+Python · FastAPI · GPT-5-nano · text-embedding-3-small · ScraperAPI · Redis · Docker · Azure
 
 </div>
 
@@ -22,6 +22,18 @@ The result is presented through a responsive browser interface and a FastAPI JSO
 - A deterministic confidence score
 
 The system is designed as an end-to-end engineering project rather than a single LLM call: it combines data acquisition, preprocessing, semantic retrieval, structured generation, caching, testing, containerization, and cloud deployment.
+
+## Demo
+
+| Product input | Analysis overview |
+|---|---|
+| ![PRAS product URL input and review-count selector](docs/images/pras-input.webp) | ![PRAS generated review summary, recommendation, and confidence score](docs/images/pras-analysis.webp) |
+
+### Pros, cons, and recurring issues
+
+![PRAS pros, cons, and common issues found in low-rated reviews](docs/images/pras-insights.webp)
+
+The screenshots above were captured from the working project demonstration. Live results depend on the reviews retrieved for the submitted product.
 
 ## Why It Is Technically Interesting
 
@@ -50,18 +62,20 @@ External services are treated as optional runtime dependencies where possible:
 
 ```mermaid
 flowchart TD
-    A[Browser UI] --> B[FastAPI API]
-    B --> C{Redis result cache}
-    C -->|Hit| D[Return cached analysis]
-    C -->|Miss| E[Extract ASIN and fetch reviews]
-    E --> F[Clean, normalize, deduplicate]
-    F --> G[Statistics and confidence score]
-    F --> H[Embeddings and semantic selection]
-    G --> I[Structured LLM analysis]
-    H --> I
-    I --> J[Assemble API response]
-    J --> K[Cache for 24 hours]
-    K --> A
+    UI["Browser UI"] --> API["FastAPI"]
+    API --> CACHE{"Redis hit?"}
+    CACHE -->|Yes| RESULT["JSON result"]
+    CACHE -->|No| FETCH["ScraperAPI"]
+    FETCH --> PARSE["Beautiful Soup"]
+    PARSE --> CLEAN["Clean + deduplicate"]
+    CLEAN --> STATS["Stats + confidence"]
+    CLEAN --> EMBED["OpenAI embeddings"]
+    EMBED --> RANK["Centroid ranking"]
+    STATS --> LLM["GPT-5-nano"]
+    RANK --> LLM
+    LLM --> STORE["Redis · 24h"]
+    STORE --> RESULT
+    RESULT --> UI
 ```
 
 ## Processing Pipeline
@@ -130,6 +144,21 @@ Other endpoints:
 | `GET` | `/` | Serve the browser interface |
 | `GET` | `/health` | Liveness check |
 | `GET` | `/docs` | Interactive OpenAPI documentation |
+
+## Models, Services, and Core Tools
+
+| Role | Technology | Use in PRAS |
+|---|---|---|
+| Language model | **GPT-5-nano** by default, configurable to a compatible GPT-5 model | Produces the structured summary, pros, cons, aspects, recommendation, and negative-review analysis through the OpenAI Responses API |
+| Embedding model | **OpenAI text-embedding-3-small** | Converts review text into vectors in batches of up to 150 |
+| Semantic selection | **NumPy + scikit-learn** | Computes the embedding centroid and ranks reviews using cosine similarity |
+| Review retrieval | **ScraperAPI + Requests** | Retrieves live Amazon product and review pages while handling proxy and anti-bot infrastructure |
+| HTML parsing | **Beautiful Soup** | Extracts review text, ratings, dates, helpful votes, verified-purchase status, and product metadata |
+| API and validation | **FastAPI + Pydantic** | Exposes validated JSON endpoints and OpenAPI documentation |
+| Cache | **Redis** | Stores raw review payloads and final analyses with a 24-hour TTL |
+| Frontend | **HTML + CSS + JavaScript** | Provides the responsive browser interface without a frontend framework |
+| Deployment | **Docker + Azure Container Apps + Azure Container Registry** | Packages and deploys the application with health checks and a non-root runtime |
+| Testing and linting | **pytest + pytest-cov + Ruff + pre-commit** | Supports unit, integration, API, cache, formatting, and static-quality checks |
 
 ## Technology Stack
 
