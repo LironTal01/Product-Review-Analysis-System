@@ -5,53 +5,57 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pras"
 version = "0.1.0"
-description = "Product Review Analysis System - Analyzes Amazon product reviews using AI"
+description = "AI-powered Amazon review analysis with semantic retrieval and deterministic confidence scoring"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Liron Tal"},
+    {name = "Shani Rahamim"},
+]
+keywords = [
+    "amazon-reviews",
+    "fastapi",
+    "openai",
+    "semantic-search",
+    "redis",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
+    "beautifulsoup4>=4.12.0",
     "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
-    "python-dotenv>=1.0.0",
-    "openai>=1.10.0",
-    "tiktoken>=0.5.0",
     "numpy>=1.26.0",
-    "scikit-learn>=1.4.0",
-    "vaderSentiment>=3.3.2",
-    "httpx>=0.26.0",
-    "psycopg[binary]>=3.1.0",
+    "openai>=1.10.0",
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
     "redis>=5.0.0",
+    "requests>=2.31.0",
+    "scikit-learn>=1.4.0",
+    "uvicorn[standard]>=0.27.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.23.0",
-    "ruff>=0.2.0",
-    "pre-commit>=3.6.0",
+    "httpx>=0.26.0",
+    "pre-commit>=4.0.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.9.0",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/Product-Review-Analysis-System"
-"Bug Tracker" = "https://github.com/yourusername/Product-Review-Analysis-System/issues"
+"Homepage" = "https://github.com/LironTal01/Product-Review-Analysis-System"
+"Bug Tracker" = "https://github.com/LironTal01/Product-Review-Analysis-System/issues"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["src*"]
 
 [tool.ruff]
 target-version = "py311"
@@ -60,20 +64,20 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # Pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
-    "ARG",    # flake8-unused-arguments
-    "SIM",    # flake8-simplify
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "ARG",
+    "SIM",
 ]
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "B008",   # do not perform function calls in argument defaults
-    "B904",   # raise without from inside except
+    "E501",
+    "B008",
+    "B904",
 ]
 
 [tool.ruff.lint.isort]

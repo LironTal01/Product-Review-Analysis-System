@@ -45,21 +45,20 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 
-# Translations
-*.mo
-*.pot
-
-# Environments
+# Environments and secrets
 .env
-.env.local
-.env.*.local
-.venv
+.env.*
+!.env.example
+.venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+*.pem
+*.key
 
 # IDE
 .idea/
@@ -72,7 +71,7 @@ venv.bak/
 .settings/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
 # macOS
 .DS_Store
@@ -80,18 +79,10 @@ venv.bak/
 .LSOverride
 ._*
 
-
-# Project specific
+# Project-specific generated data
 data/datasets/
 *.log
 logs/
 scripts/diagnose_amazon_pagination.py
 diagnostics/
-
-# Environment variables
-.env
-*.pem
-*.key
-
-*.md
 *.pdf

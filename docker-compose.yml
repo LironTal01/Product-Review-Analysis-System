@@ -1,10 +1,12 @@
-# Local dev stack: app + postgres + redis on a single network.
+# Local stack: PRAS API + Redis + RedisInsight.
 # Usage:
-#   docker compose up --build      # first run / after code change
-#   docker compose up              # subsequent runs
-#   docker compose down -v         # stop and remove volumes (clean slate)
+#   cp .env.example .env          # then add the two API keys
+#   docker compose up --build
+#   docker compose down -v        # stop and remove local cache volumes
 #
-# Open: http://localhost:8000
+# App:          http://localhost:8000
+# API docs:     http://localhost:8000/docs
+# RedisInsight: http://localhost:5540
 
 services:
   app:
@@ -13,29 +15,33 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://pras:pras@postgres:5432/pras
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: ${DEBUG:-false}
+      ALLOW_MOCK_FALLBACK: ${ALLOW_MOCK_FALLBACK:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_LLM_MODEL: ${OPENAI_LLM_MODEL:-gpt-5-nano}
+      SCRAPER_API_KEY: ${SCRAPER_API_KEY:-}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-pras-local}@redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
 
-
-
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:-pras-local}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD}\" ping"]
+      test: ["CMD-SHELL", "redis-cli -a '${REDIS_PASSWORD:-pras-local}' ping"]
       interval: 5s
       timeout: 3s
       retries: 10

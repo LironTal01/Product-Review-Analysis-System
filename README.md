@@ -17,7 +17,7 @@ PRAS retrieves customer reviews, removes noisy and duplicate data, selects repre
   <img src="https://img.shields.io/badge/Azure-Container_Apps-0078D4?style=flat-square&logo=microsoftazure&logoColor=white" alt="Azure Container Apps">
 </p>
 
-[Demo](#demo) · [Architecture](#architecture) · [Technical Design](#technical-design) · [Technology Stack](#technology-stack) · [Run Locally](#run-locally)
+[Demo](#demo) · [Architecture](#architecture) · [Technical Design](#technical-design) · [Technology Stack](#technology-stack) · [Run Locally](#run-locally) · [Deploy to Azure](#deploy-to-azure)
 
 </div>
 
@@ -212,19 +212,16 @@ cd Product-Review-Analysis-System
 
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
-Create a `.env` file:
+Copy the versioned environment template, then add your credentials:
 
-```dotenv
-OPENAI_API_KEY=your_openai_api_key
-SCRAPER_API_KEY=your_scraperapi_key
-OPENAI_LLM_MODEL=gpt-5-nano
-REDIS_URL=redis://localhost:6379/0
-ALLOW_MOCK_FALLBACK=false
-LOG_LEVEL=INFO
+```bash
+cp .env.example .env
 ```
+
+`.env` is ignored by Git. Keep `ALLOW_MOCK_FALLBACK=false` when working with live Amazon data.
 
 Run the application:
 
@@ -236,12 +233,39 @@ Open [http://localhost:8000](http://localhost:8000) for the application or [http
 
 For a local demonstration without live Amazon retrieval, set `ALLOW_MOCK_FALLBACK=true`. Mock fallback is disabled by default so unavailable live data is not silently presented as scraped data.
 
-### Docker
+### Docker Compose
+
+The local stack starts PRAS, password-protected Redis, and RedisInsight:
+
+```bash
+cp .env.example .env
+# Add OPENAI_API_KEY and SCRAPER_API_KEY to .env
+docker compose up --build
+```
+
+Open the app at [http://localhost:8000](http://localhost:8000), the API explorer at [http://localhost:8000/docs](http://localhost:8000/docs), or RedisInsight at [http://localhost:5540](http://localhost:5540).
+
+To run only the application container:
 
 ```bash
 docker build -t pras .
 docker run --rm -p 8000:8000 --env-file .env pras
 ```
+
+## Deploy to Azure
+
+The deployment script builds the image in Azure Container Registry and creates or updates an Azure Container App. API credentials and an optional managed Redis URL are stored as Container App secrets rather than plain environment values.
+
+```bash
+export ACR_NAME=yourgloballyuniqueacrname
+export OPENAI_API_KEY=your_openai_api_key
+export SCRAPER_API_KEY=your_scraperapi_key
+# Optional: export REDIS_URL=your_managed_redis_url
+
+./scripts/azure_deploy.sh
+```
+
+`ACR_NAME` is explicit so repeated deployments update the same registry instead of creating randomly named resources. The script validates required configuration and prints the deployed application and health-check URLs.
 
 ## Testing and Quality
 
@@ -291,3 +315,4 @@ Developed as a two-person academic project by **Liron Tal** and **Shani Rahamim*
 
 - **Liron Tal** — originated the product concept and led the architecture and primary end-to-end implementation.
 - **Shani Rahamim** — contributed to infrastructure, deployment, testing, and interface refinement.
+

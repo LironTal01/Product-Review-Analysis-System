@@ -10,7 +10,7 @@ DEFAULT_LLM_MODEL = os.getenv("OPENAI_LLM_MODEL", "gpt-5-nano")
 
 
 def _parse_bool(value, default):
-    """Parse env boolean values safely."""
+    """Parse environment boolean values safely."""
     if value is None:
         return default
     normalized = str(value).strip().lower()
@@ -32,17 +32,16 @@ class Settings:
         self.debug = _parse_bool(os.getenv("DEBUG"), False)
         self.allow_mock_fallback = _parse_bool(os.getenv("ALLOW_MOCK_FALLBACK"), False)
 
-        # API Keys
+        # External services
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
         self.openai_llm_model = os.getenv("OPENAI_LLM_MODEL", DEFAULT_LLM_MODEL)
         self.scraper_api_key = os.getenv("SCRAPER_API_KEY", "")
 
-        # Database (optional — empty string disables gracefully)
-        self.database_url = os.getenv("DATABASE_URL", "")
+        # Optional cache; an empty value disables it gracefully
         self.redis_url = os.getenv("REDIS_URL", "")
 
 
 @lru_cache
 def get_settings():
-    """Get cached settings instance."""
+    """Get the cached settings instance."""
     return Settings()
