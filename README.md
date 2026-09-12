@@ -64,7 +64,7 @@ External services are treated as optional runtime dependencies where possible:
 flowchart TD
     UI["Browser UI"] --> API["FastAPI"]
     API --> CACHE{"Redis hit?"}
-    CACHE -->|Yes| RESULT["JSON result"]
+    CACHE -->|Yes| RESULT["JSON result to UI"]
     CACHE -->|No| FETCH["ScraperAPI"]
     FETCH --> PARSE["Beautiful Soup"]
     PARSE --> CLEAN["Clean + deduplicate"]
@@ -75,7 +75,6 @@ flowchart TD
     RANK --> LLM
     LLM --> STORE["Redis · 24h"]
     STORE --> RESULT
-    RESULT --> UI
 ```
 
 ## Processing Pipeline
