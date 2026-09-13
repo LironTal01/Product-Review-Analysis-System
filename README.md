@@ -304,7 +304,7 @@ scripts/            # Azure deployment and teardown
 
 ## Transparency and Limitations
 
-- Live retrieval depends on Amazon page structure, regional availability, and ScraperAPI responses, so the number of accessible reviews can be lower than requested.
+- In real-world use across the products analyzed, Amazon's anti-scraping protections limited the reviews ScraperAPI could retrieve to about 21, even when more were requested. In live mode, PRAS analyzes the reviews returned without filling the remainder with mock data.
 - Centroid-based selection prioritizes representative reviews; minority opinions may receive less weight and are partially preserved through rating statistics and the separate low-rated-review analysis.
 - LLM-generated wording can vary. Statistics and the confidence score are calculated deterministically by the application.
 - PRAS is an independent academic project and is not affiliated with or endorsed by Amazon, OpenAI, ScraperAPI, or Microsoft.
