@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pras"
 version = "0.1.0"
-description = "AI-powered Amazon review analysis with semantic retrieval and deterministic confidence scoring"
+description = "PRAS (Product Review Analysis System) - Analyzes Amazon product reviews using AI"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
