@@ -309,10 +309,5 @@ scripts/            # Azure deployment and teardown
 
 ## Authors
 
-Developed jointly as an academic project by **Liron Tal** and **Shani Rahamim**.
-
-- **Liron Tal** — proposed the concept and built the review-analysis pipeline, including scraping, cleaning, embeddings, LLM synthesis, and confidence scoring.
-- **Shani Rahamim** — built substantial parts of the browser interface, Redis cache, Docker/Azure setup, and API tests.
-
-Both worked on integration and later refinements.
+Developed by Liron Tal and Shani Rahamim as a joint academic project. Original concept by Liron Tal.
 
